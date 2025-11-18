@@ -1,33 +1,30 @@
 <!--
-  KPI Data Processor – Code V08
-  - Firebase v9 Modular SDK via CDN
-  - ใช้ firebaseConfig / constants ตามที่กำหนด (ห้ามแก้)
-  - Support filenames:
-      Daily Sales KPI by .... = daily_kpi
-      salebydeptUK4340        = salebydeptUK
-      soldmovement43401511    = soldmovement
-      storerecap4340          = storerecap
-      Weekly Sales KPI by ... = weekly_kpi
-  - Groups for Firestore:
-      daily group  : daily_kpi, salebydeptUK, soldmovement
-      weekly group : weekly_kpi
-      recap group  : storerecap
-  - Firestore structure:
-      stores/{storeId}/{daily_kpi|weekly_kpi|recap_kpi}/{dateKey_fileType}
-      artifacts/default-app-id/public/data/kpi_reports/{auto-id}  (summary)
-
-  Version: Code V08 (modular JS)
+  KPI Data Processor – Code V08 (Theme Support)
+  - Modular JS Structure
+  - Supports Light (Chrome Blue) & Dark (Black Tone) themes
 -->
 
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" class="light"> <!-- Default to light class, JS will update -->
 <head>
   <meta charset="UTF-8" />
-  <title>KPI Data Processor – Code V08</title>
+  <title>KPI Data Processor – V08 Theme</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Tailwind CDN -->
+  <!-- Tailwind CDN with Config for Dark Mode -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class', // Enable class-based dark mode
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans Thai"', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
 
   <!-- Noto Sans Thai -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -39,543 +36,390 @@
 
   <style>
     body {
-      font-family: "Noto Sans Thai", system-ui, -apple-system, BlinkMacSystemFont,
-        "Segoe UI", sans-serif;
+      transition: background-color 0.3s, color 0.3s;
     }
+    
+    /* Custom Scrollbar - Adaptive */
     .kpi-scroll {
       scrollbar-width: thin;
-      scrollbar-color: #64748b #0f172a;
     }
+    /* Light Mode Scrollbar */
     .kpi-scroll::-webkit-scrollbar {
       width: 6px;
     }
     .kpi-scroll::-webkit-scrollbar-track {
-      background: #020617;
+      background: #f1f5f9;
     }
     .kpi-scroll::-webkit-scrollbar-thumb {
-      background-color: #64748b;
+      background-color: #cbd5e1;
       border-radius: 999px;
     }
+    /* Dark Mode Scrollbar Override */
+    .dark .kpi-scroll {
+      scrollbar-color: #475569 #0f172a;
+    }
+    .dark .kpi-scroll::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .dark .kpi-scroll::-webkit-scrollbar-thumb {
+      background-color: #475569;
+    }
+
+    /* Tab Animations & Styles */
+    .tab-btn {
+      transition: all 0.2s ease;
+    }
+    /* Light Mode Tabs */
     .tab-btn-active {
-      background-color: #0f172a;
-      color: #e5e7eb;
+      background-color: #eff6ff; /* blue-50 */
+      color: #2563eb; /* blue-600 */
+      border-bottom: 2px solid #2563eb;
     }
     .tab-btn-inactive {
-      color: #9ca3af;
+      color: #64748b; /* slate-500 */
+      border-bottom: 2px solid transparent;
+    }
+    .tab-btn-inactive:hover {
+      color: #334155; /* slate-700 */
+      background-color: #f8fafc;
+    }
+    
+    /* Dark Mode Tabs Overrides */
+    .dark .tab-btn-active {
+      background-color: #1e293b; /* slate-800 */
+      color: #38bdf8; /* sky-400 */
+      border-bottom: 2px solid #38bdf8;
+    }
+    .dark .tab-btn-inactive {
+      color: #94a3b8; /* slate-400 */
+    }
+    .dark .tab-btn-inactive:hover {
+      color: #f1f5f9; /* slate-100 */
+      background-color: #0f172a; /* slate-950 */
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
+<body class="bg-gray-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans">
   <div class="min-h-screen flex flex-col items-center">
+    
     <!-- HEADER -->
-    <header class="w-full max-w-5xl px-4 pt-6 pb-4">
-      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">
-            KPI Data Processor
-          </h1>
-          <p class="text-sm text-slate-400">
-            Process Daily / Weekly / Store Recap KPI files · Code V08
-          </p>
+    <header class="w-full max-w-5xl px-6 pt-8 pb-6">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div class="flex items-center justify-between w-full md:w-auto">
+          <div>
+            <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+              KPI Data Processor
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              ระบบจัดการข้อมูล KPI รายวัน / รายสัปดาห์ (V08 Theme)
+            </p>
+          </div>
+          
+          <!-- Theme Toggle Button (Mobile/Desktop) -->
+          <button id="btnThemeToggle" class="md:hidden p-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-yellow-400 shadow-sm border border-gray-200 dark:border-slate-700 transition-colors">
+             <!-- Icon will be set by JS -->
+             <span class="text-xl">🌓</span>
+          </button>
         </div>
-        <div class="mt-2 md:mt-0 text-right text-xs text-slate-500">
-          <div id="firebaseStatus">
-            Firebase: <span class="text-amber-400">initializing…</span>
-          </div>
-          <div id="authStatus">
-            Auth: <span class="text-amber-400">signing in…</span>
-          </div>
-          <div id="uidStatus" class="truncate"></div>
+
+        <div class="flex items-center gap-3">
+            <!-- Theme Toggle Button (Desktop) -->
+            <button id="btnThemeToggleDesktop" class="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-yellow-400 shadow-sm border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors" title="Switch Theme">
+                <!-- Icon will be set by JS -->
+                <span class="text-lg">🌓</span>
+            </button>
+
+            <div class="text-right text-xs font-medium text-slate-400 bg-white dark:bg-slate-900 px-4 py-2 rounded-lg shadow-sm border border-gray-100 dark:border-slate-800">
+              <div id="firebaseStatus" class="flex items-center justify-end gap-2">
+                Firebase: <span class="text-amber-500">initializing…</span>
+              </div>
+              <div id="authStatus" class="flex items-center justify-end gap-2">
+                Auth: <span class="text-amber-500">signing in…</span>
+              </div>
+              <div id="uidStatus" class="truncate max-w-[150px] text-slate-300 dark:text-slate-600"></div>
+            </div>
         </div>
       </div>
     </header>
 
     <!-- MAIN CARD -->
-    <main class="w-full max-w-5xl px-4 pb-10 flex-1">
-      <div
-        class="bg-slate-900/70 border border-slate-800 rounded-2xl shadow-xl overflow-hidden"
-      >
+    <main class="w-full max-w-5xl px-4 pb-12 flex-1">
+      <div class="bg-white dark:bg-slate-900/80 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden transition-colors duration-300">
+        
         <!-- TAB BAR -->
-        <div
-          class="border-b border-slate-800 bg-slate-900/80 px-4 py-2 flex items-center justify-between gap-2"
-        >
-          <div class="flex flex-wrap gap-1">
-            <button
-              class="tab-btn px-3 py-1.5 rounded-full text-xs md:text-sm font-medium tab-btn-active"
-              data-tab="tab-login"
-            >
-              Login & Role
+        <div class="border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 pt-4 flex items-end justify-between gap-4">
+          <div class="flex flex-wrap gap-1 -mb-[1px]">
+            <button class="tab-btn px-5 py-3 text-sm font-semibold tab-btn-active" data-tab="tab-login">
+              Login
             </button>
-            <button
-              class="tab-btn px-3 py-1.5 rounded-full text-xs md:text-sm font-medium tab-btn-inactive"
-              data-tab="tab-input"
-            >
-              Input
+            <button class="tab-btn px-5 py-3 text-sm font-semibold tab-btn-inactive" data-tab="tab-input">
+              Input Data
             </button>
-            <button
-              class="tab-btn px-3 py-1.5 rounded-full text-xs md:text-sm font-medium tab-btn-inactive"
-              data-tab="tab-report"
-            >
-              Report
+            <button class="tab-btn px-5 py-3 text-sm font-semibold tab-btn-inactive" data-tab="tab-report">
+              Reports
             </button>
-            <button
-              class="tab-btn px-3 py-1.5 rounded-full text-xs md:text-sm font-medium tab-btn-inactive"
-              data-tab="tab-config"
-            >
+            <button class="tab-btn px-5 py-3 text-sm font-semibold tab-btn-inactive" data-tab="tab-calendar">
+              Calendar
+            </button>
+             <button class="tab-btn px-5 py-3 text-sm font-semibold tab-btn-inactive" data-tab="tab-config">
               Config
             </button>
           </div>
-          <div class="hidden md:flex flex-col items-end text-xs text-slate-400">
-            <div>
-              User:
-              <span
-                id="currentUserDisplay"
-                class="font-semibold text-slate-200"
-                >-</span
-              >
+          
+          <div class="hidden md:flex flex-col items-end text-xs text-slate-500 dark:text-slate-400 pb-3">
+            <div class="flex items-center gap-2">
+              User: <span id="currentUserDisplay" class="font-bold text-slate-700 dark:text-slate-200">-</span>
             </div>
-            <div>
-              Role:
-              <span
-                id="currentRoleDisplay"
-                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-sky-300"
-              >
-                -
-              </span>
+            <div class="flex items-center gap-2 mt-0.5">
+              Role: <span id="currentRoleDisplay" class="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-sky-300 border border-slate-200 dark:border-slate-700 font-medium">-</span>
             </div>
           </div>
         </div>
 
         <!-- TAB PANELS -->
 
-        <!-- LOGIN TAB START (Code V08) -->
-        <section id="tab-login" class="tab-panel px-4 py-4 md:px-6 md:py-6">
-          <div class="grid gap-6 md:grid-cols-[1.2fr,1fr]">
-            <!-- Login form -->
-            <div class="space-y-4">
-              <h2 class="text-lg font-semibold">Login & Role</h2>
-              <p class="text-sm text-slate-400">
-                เลือก role และใส่ KPI password สำหรับ
-                <span class="font-medium text-sky-300">Management / Admin</span>.
-                Role = Normal ไม่ต้องใช้รหัส
-              </p>
+        <!-- LOGIN TAB -->
+        <section id="tab-login" class="tab-panel px-6 py-8 md:px-10 md:py-10">
+          <div class="grid gap-10 md:grid-cols-[1fr,1fr] items-start">
+            
+            <!-- Login Form -->
+            <div class="space-y-6">
+              <div>
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white">เข้าสู่ระบบ</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  กรุณาระบุชื่อและบทบาทเพื่อเข้าใช้งานระบบ
+                </p>
+              </div>
 
-              <form id="loginForm" class="space-y-4 mt-2">
-                <div class="space-y-1">
-                  <label
-                    for="loginName"
-                    class="text-xs font-medium text-slate-300"
-                  >
-                    Display name
-                  </label>
-                  <input
-                    id="loginName"
-                    type="text"
-                    placeholder="เช่น Ek / Manager / Admin"
-                    class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-                  />
+              <form id="loginForm" class="space-y-5">
+                <div class="space-y-1.5">
+                  <label for="loginName" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Display Name</label>
+                  <input id="loginName" type="text" placeholder="เช่น Somchai / Manager" 
+                    class="w-full rounded-lg border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-slate-900 dark:text-white px-4 py-2.5 text-sm focus:border-blue-500 dark:focus:border-sky-500 focus:ring-blue-500 dark:focus:ring-sky-500 shadow-sm" />
                 </div>
 
-                <div class="space-y-1">
-                  <label
-                    for="loginRole"
-                    class="text-xs font-medium text-slate-300"
-                  >
-                    Role
-                  </label>
-                  <select
-                    id="loginRole"
-                    class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-                  >
+                <div class="space-y-1.5">
+                  <label for="loginRole" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Role</label>
+                  <select id="loginRole" 
+                    class="w-full rounded-lg border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-slate-900 dark:text-white px-4 py-2.5 text-sm focus:border-blue-500 dark:focus:border-sky-500 focus:ring-blue-500 dark:focus:ring-sky-500 shadow-sm">
                     <option value="Normal">Normal (Staff)</option>
                     <option value="Management">Management</option>
                     <option value="Admin">Admin</option>
                   </select>
                 </div>
 
-                <div class="space-y-1">
-                  <label
-                    for="loginPassword"
-                    class="text-xs font-medium text-slate-300"
-                  >
-                    KPI password (สำหรับ Management / Admin)
+                <div class="space-y-1.5">
+                  <label for="loginPassword" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    KPI Password <span class="text-xs font-normal text-slate-400 dark:text-slate-500">(เฉพาะ Management/Admin)</span>
                   </label>
-                  <input
-                    id="loginPassword"
-                    type="password"
-                    placeholder="••••••••"
-                    class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-                  />
-                  <p class="text-[10px] text-slate-500">
-                    ถ้าเลือก role = Normal สามารถเว้นว่างได้
-                  </p>
+                  <input id="loginPassword" type="password" placeholder="••••••••" 
+                    class="w-full rounded-lg border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-slate-900 dark:text-white px-4 py-2.5 text-sm focus:border-blue-500 dark:focus:border-sky-500 focus:ring-blue-500 dark:focus:ring-sky-500 shadow-sm" />
                 </div>
 
-                <div class="flex items-center gap-3 pt-2">
-                  <button
-                    type="submit"
-                    class="inline-flex items-center justify-center rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-sky-400 transition-colors"
-                  >
-                    Set role & continue
+                <div class="pt-4 flex items-center gap-3">
+                  <button type="submit" 
+                    class="inline-flex items-center justify-center rounded-lg bg-blue-600 dark:bg-sky-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-blue-700 dark:hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-sky-500 focus:ring-offset-2 shadow-md transition-all">
+                    เข้าสู่ระบบ
                   </button>
-                  <button
-                    type="button"
-                    id="btnLogout"
-                    class="inline-flex items-center justify-center rounded-xl border border-slate-600 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800 transition-colors"
-                  >
-                    Clear role
+                  <button type="button" id="btnLogout" 
+                    class="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-slate-700 transition-all">
+                    ออกจากระบบ
                   </button>
                 </div>
-
-                <p class="text-[11px] text-slate-500 pt-1">
-                  หลังจากตั้งค่า role แล้ว ระบบจะพาไปหน้า
-                  <span class="text-sky-300 font-medium">Input</span> อัตโนมัติ
-                </p>
               </form>
             </div>
 
-            <!-- Role info card -->
-            <div class="space-y-3">
-              <div
-                class="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 text-xs"
-              >
-                <h3 class="font-semibold text-slate-100 mb-2">
-                  Role concept
-                </h3>
-                <ul class="space-y-1.5 text-slate-400">
-                  <li>
-                    <span class="font-semibold text-sky-300">Admin</span> – เห็นทุกแท็บ, ปรับ
-                    Config, จัดการ store/collections.
-                  </li>
-                  <li>
-                    <span class="font-semibold text-emerald-300"
-                      >Management</span
-                    >
-                    – ใช้งาน Input & Report เต็ม, ปรับ Config ได้บางส่วน.
-                  </li>
-                  <li>
-                    <span class="font-semibold text-indigo-300">Normal</span> –
-                    ใช้ Input งานประจำวัน, ดู Report สรุป.
-                  </li>
-                </ul>
-                <p class="mt-3 text-slate-500">
-                  Code V08: role ยังเป็น state ในหน้าเว็บ
-                  (ยังไม่ enforce permission ที่ Firestore)
-                </p>
-              </div>
+            <!-- Info Card -->
+            <div class="rounded-2xl bg-blue-50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 p-6">
+              <h3 class="font-bold text-blue-900 dark:text-sky-300 mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                สิทธิ์การใช้งาน (Roles)
+              </h3>
+              <ul class="space-y-3 text-sm text-blue-800 dark:text-slate-300">
+                <li class="flex items-start gap-2">
+                  <span class="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-sky-400 shrink-0"></span>
+                  <span><b>Admin:</b> เข้าถึงได้ทุกฟังก์ชัน แก้ไข Config และจัดการฐานข้อมูลได้</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span><b>Management:</b> อัปโหลดข้อมูล และดูรายงานเชิงลึกได้</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                  <span><b>Normal:</b> อัปโหลดข้อมูลประจำวัน และดูรายงานสรุปพื้นฐาน</span>
+                </li>
+              </ul>
             </div>
           </div>
         </section>
-        <!-- LOGIN TAB END (Code V08) -->
 
-        <!-- INPUT TAB START (Code V08) -->
-        <section
-          id="tab-input"
-          class="tab-panel px-4 py-4 md:px-6 md:py-6 hidden"
-        >
+        <!-- INPUT TAB -->
+        <section id="tab-input" class="tab-panel px-6 py-8 md:px-10 md:py-10 hidden">
+          <div class="flex flex-col gap-8">
+            <div class="flex items-baseline justify-between border-b border-gray-100 dark:border-slate-800 pb-4">
+              <h2 class="text-xl font-bold text-slate-800 dark:text-white">อัปโหลดไฟล์ข้อมูล</h2>
+              <span class="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 rounded-md">รองรับ .xlsx, .zip</span>
+            </div>
+
+            <div class="grid gap-6 lg:grid-cols-2">
+              
+              <!-- Daily Card -->
+              <div class="group bg-white dark:bg-slate-800/50 rounded-xl border border-gray-200 dark:border-slate-700 p-5 hover:border-blue-300 dark:hover:border-sky-500 hover:shadow-md transition-all">
+                <div class="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 class="text-base font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-sky-400 transition-colors">Daily Data</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Daily KPI / SoldMovement / SaleByDept</p>
+                  </div>
+                  <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-sky-900/30 flex items-center justify-center text-blue-600 dark:text-sky-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                  </div>
+                </div>
+                
+                <div class="space-y-3">
+                  <input id="dailyFile" type="file" accept=".zip,.xlsx" 
+                    class="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 dark:file:bg-sky-900/50 file:text-blue-700 dark:file:text-sky-300 hover:file:bg-blue-100 dark:hover:file:bg-sky-800 transition-all"/>
+                  <button id="btnProcessDaily" type="button" 
+                    class="w-full py-2 rounded-lg bg-blue-600 dark:bg-sky-600 text-white text-xs font-bold hover:bg-blue-700 dark:hover:bg-sky-500 transition-colors shadow-sm">
+                    ประมวลผล Daily Pack
+                  </button>
+                </div>
+              </div>
+
+              <!-- Weekly Card -->
+              <div class="group bg-white dark:bg-slate-800/50 rounded-xl border border-gray-200 dark:border-slate-700 p-5 hover:border-emerald-300 dark:hover:border-emerald-500 hover:shadow-md transition-all">
+                <div class="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 class="text-base font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">Weekly KPI</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">ไฟล์ Weekly Sales KPI สรุปรายสัปดาห์</p>
+                  </div>
+                  <div class="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z"></path></svg>
+                  </div>
+                </div>
+
+                <div class="space-y-3">
+                  <input id="weeklyFile" type="file" accept=".zip,.xlsx" 
+                    class="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-900/50 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-800 transition-all"/>
+                  <button id="btnProcessWeekly" type="button" 
+                    class="w-full py-2 rounded-lg bg-emerald-600 dark:bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 dark:hover:bg-emerald-500 transition-colors shadow-sm">
+                    ประมวลผล Weekly
+                  </button>
+                </div>
+              </div>
+
+              <!-- Recap Card -->
+              <div class="group bg-white dark:bg-slate-800/50 rounded-xl border border-gray-200 dark:border-slate-700 p-5 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md transition-all">
+                <div class="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 class="text-base font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">Store Recap</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">ไฟล์ Monthly Store Recap</p>
+                  </div>
+                  <div class="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                  </div>
+                </div>
+
+                <div class="space-y-3">
+                  <input id="recapFile" type="file" accept=".zip,.xlsx" 
+                    class="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/50 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800 transition-all"/>
+                  <button id="btnProcessRecap" type="button" 
+                    class="w-full py-2 rounded-lg bg-indigo-600 dark:bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 dark:hover:bg-indigo-500 transition-colors shadow-sm">
+                    ประมวลผล Recap
+                  </button>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+        </section>
+
+        <!-- REPORT TAB (Summary Log) -->
+        <section id="tab-report" class="tab-panel px-6 py-8 md:px-10 md:py-10 hidden">
           <div class="flex flex-col gap-6">
-            <div
-              class="flex flex-col md:flex-row md:items-baseline md:justify-between gap-2"
-            >
-              <h2 class="text-lg font-semibold">
-                Input – Upload KPI files (.zip / .xlsx)
-              </h2>
-              <p class="text-xs text-slate-400">
-                ถ้าเป็น zip แบบ daily pack / recap pack ให้ใส่ในช่อง Daily หรือ
-                Recap ตามจริงได้เลย ระบบจะดูจากชื่อไฟล์ข้างใน
-              </p>
-            </div>
-
-            <!-- DAILY -->
-            <div
-              class="rounded-2xl border border-sky-900/70 bg-sky-950/40 p-4 space-y-3"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <div>
-                  <h3 class="text-sm font-semibold text-sky-200">
-                    Daily Pack (Daily KPI / salebydeptUK / soldmovement)
-                  </h3>
-                  <p class="text-xs text-slate-400">
-                    รองรับไฟล์:
-                    <span class="font-medium">Daily Sales KPI by ...</span>,
-                    <span class="font-medium">salebydeptUKxxxx</span>,
-                    <span class="font-medium">soldmovementxxxx</span>
-                  </p>
-                </div>
-                <span
-                  class="text-[10px] px-2 py-1 rounded-full bg-sky-900/60 text-sky-100"
-                >
-                  Group: <span class="font-mono">daily</span>
-                </span>
-              </div>
-
-              <div
-                class="flex flex-col md:flex-row md:items-center gap-3"
-              >
-                <input
-                  id="dailyFile"
-                  type="file"
-                  accept=".zip,.xlsx"
-                  class="w-full md:flex-1 text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-sky-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-950 hover:file:bg-sky-500 cursor-pointer text-slate-300"
-                />
-                <button
-                  id="btnProcessDaily"
-                  type="button"
-                  class="inline-flex items-center justify-center rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-400 transition-colors"
-                >
-                  Process Daily Pack
-                </button>
-              </div>
-            </div>
-
-            <!-- WEEKLY -->
-            <div
-              class="rounded-2xl border border-emerald-900/70 bg-emerald-950/40 p-4 space-y-3"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <div>
-                  <h3 class="text-sm font-semibold text-emerald-200">
-                    Weekly KPI
-                  </h3>
-                  <p class="text-xs text-slate-400">
-                    ไฟล์
-                    <span class="font-medium"
-                      >Weekly Sales KPI by Store-en-us-....</span
-                    >
-                  </p>
-                </div>
-                <span
-                  class="text-[10px] px-2 py-1 rounded-full bg-emerald-900/60 text-emerald-100"
-                >
-                  Group: <span class="font-mono">weekly</span>
-                </span>
-              </div>
-
-              <div
-                class="flex flex-col md:flex-row md:items-center gap-3"
-              >
-                <input
-                  id="weeklyFile"
-                  type="file"
-                  accept=".zip,.xlsx"
-                  class="w-full md:flex-1 text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-500 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-950 hover:file:bg-emerald-400 cursor-pointer text-slate-300"
-                />
-                <button
-                  id="btnProcessWeekly"
-                  type="button"
-                  class="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-emerald-400 transition-colors"
-                >
-                  Process Weekly
-                </button>
-              </div>
-            </div>
-
-            <!-- RECAP -->
-            <div
-              class="rounded-2xl border border-indigo-900/70 bg-indigo-950/40 p-4 space-y-3"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <div>
-                  <h3 class="text-sm font-semibold text-indigo-200">
-                    Store Recap
-                  </h3>
-                  <p class="text-xs text-slate-400">
-                    ไฟล์ <span class="font-medium">storerecapxxxx</span> หรือ
-                    recap pack อื่น ๆ
-                  </p>
-                </div>
-                <span
-                  class="text-[10px] px-2 py-1 rounded-full bg-indigo-900/60 text-indigo-100"
-                >
-                  Group: <span class="font-mono">recap</span>
-                </span>
-              </div>
-
-              <div
-                class="flex flex-col md:flex-row md:items-center gap-3"
-              >
-                <input
-                  id="recapFile"
-                  type="file"
-                  accept=".zip,.xlsx"
-                  class="w-full md:flex-1 text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-950 hover:file:bg-indigo-400 cursor-pointer text-slate-300"
-                />
-                <button
-                  id="btnProcessRecap"
-                  type="button"
-                  class="inline-flex items-center justify-center rounded-xl bg-indigo-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-indigo-400 transition-colors"
-                >
-                  Process Recap
-                </button>
-              </div>
-            </div>
-
-            <p class="text-[11px] text-slate-500">
-              ถ้าเป็น .zip แบบตั้งรหัส (encrypted zip) JSZip จะอ่านไม่ได้
-              และระบบจะขึ้นข้อความ
-              <span class="font-mono text-red-400"
-                >Encrypted zip are not supported</span
-              >
-            </p>
-          </div>
-        </section>
-        <!-- INPUT TAB END (Code V08) -->
-
-        <!-- REPORT TAB START (Code V08) -->
-        <section
-          id="tab-report"
-          class="tab-panel px-4 py-4 md:px-6 md:py-6 hidden"
-        >
-          <div class="flex flex-col gap-4">
-            <div class="flex items-center justify-between gap-2">
-              <h2 class="text-lg font-semibold">
-                Report – Processed files overview
-              </h2>
-              <button
-                id="btnRefreshReport"
-                class="inline-flex items-center justify-center rounded-xl border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 transition-colors"
-                type="button"
-              >
+            <div class="flex items-center justify-between">
+              <h2 class="text-xl font-bold text-slate-800 dark:text-white">ประวัติการประมวลผล (Session Log)</h2>
+              <button id="btnRefreshReport" 
+                class="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 shadow-sm transition-colors">
+                <svg class="w-4 h-4 mr-2 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 Refresh
               </button>
             </div>
-            <p class="text-xs text-slate-400">
-              แสดงสรุปไฟล์ที่ถูกประมวลผลจาก Daily / Weekly / Recap (ตาม state
-              ปัจจุบัน)
-            </p>
-
-            <pre
-              id="reportOutput"
-              class="kpi-scroll mt-2 max-h-72 rounded-2xl bg-slate-950/80 border border-slate-800 px-3 py-2 text-[11px] leading-relaxed text-slate-200 overflow-auto"
-            ></pre>
+            
+            <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden shadow-inner">
+              <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex justify-between items-center">
+                <span class="text-xs font-mono text-slate-400">system_output.log</span>
+                <div class="flex gap-1.5">
+                  <div class="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
+                  <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
+                  <div class="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
+                </div>
+              </div>
+              <pre id="reportOutput" class="kpi-scroll p-4 text-[11px] font-mono leading-relaxed text-emerald-400 h-80 overflow-auto"></pre>
+            </div>
           </div>
         </section>
-        <!-- REPORT TAB END (Code V08) -->
 
-        <!-- CONFIG TAB START (Code V08) -->
-        <section
-          id="tab-config"
-          class="tab-panel px-4 py-4 md:px-6 md:py-6 hidden"
-        >
-          <div class="space-y-5">
-            <h2 class="text-lg font-semibold">Config – Firestore</h2>
-            <p class="text-xs text-slate-400">
-              Daily collection root ถูก fix เป็น
-              <span class="font-mono">stores</span> (DAILY_COLLECTION_ROOT).
-              ตรงนี้ตั้งชื่อ subcollection ของแต่ละ group
-            </p>
+        <!-- CALENDAR TAB -->
+        <section id="tab-calendar" class="tab-panel px-6 py-6 md:px-8 md:py-8 hidden">
+          <div class="text-center text-slate-400 py-10">Loading Calendar...</div>
+        </section>
 
-            <div class="grid gap-4 md:grid-cols-2">
-              <div
-                class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 space-y-3 text-xs"
-              >
-                <h3 class="font-semibold text-slate-100 mb-1">
-                  Subcollections per group
-                </h3>
-                <div class="space-y-2">
-                  <div class="flex items-center justify-between gap-2">
-                    <label
-                      for="cfgDailyCollection"
-                      class="text-slate-300"
-                      >Daily group</label
-                    >
-                    <input
-                      id="cfgDailyCollection"
-                      type="text"
-                      class="w-40 rounded-lg bg-slate-900 border border-slate-700 px-2 py-1 text-xs"
-                      value="daily_kpi"
-                    />
-                  </div>
-                  <div class="flex items-center justify-between gap-2">
-                    <label
-                      for="cfgWeeklyCollection"
-                      class="text-slate-300"
-                      >Weekly group</label
-                    >
-                    <input
-                      id="cfgWeeklyCollection"
-                      type="text"
-                      class="w-40 rounded-lg bg-slate-900 border border-slate-700 px-2 py-1 text-xs"
-                      value="weekly_kpi"
-                    />
-                  </div>
-                  <div class="flex items-center justify-between gap-2">
-                    <label
-                      for="cfgRecapCollection"
-                      class="text-slate-300"
-                      >Recap group</label
-                    >
-                    <input
-                      id="cfgRecapCollection"
-                      type="text"
-                      class="w-40 rounded-lg bg-slate-900 border border-slate-700 px-2 py-1 text-xs"
-                      value="recap_kpi"
-                    />
-                  </div>
+        <!-- CONFIG TAB -->
+        <section id="tab-config" class="tab-panel px-6 py-8 md:px-10 md:py-10 hidden">
+          <div class="max-w-2xl mx-auto space-y-8">
+            <div>
+              <h2 class="text-xl font-bold text-slate-800 dark:text-white">Configuration</h2>
+              <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                ตั้งค่า Collection names สำหรับ Firestore (Advanced)
+              </p>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800/50 rounded-xl border border-gray-200 dark:border-slate-700 p-6 shadow-sm space-y-6">
+              <div class="grid gap-5">
+                <div class="space-y-1.5">
+                  <label for="cfgDailyCollection" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Daily Subcollection</label>
+                  <input id="cfgDailyCollection" type="text" class="w-full rounded-lg border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2 text-sm" value="daily_kpi" />
                 </div>
-                <button
-                  id="btnApplyConfig"
-                  type="button"
-                  class="mt-3 inline-flex items-center justify-center rounded-xl bg-slate-800 px-3 py-1.5 text-xs text-slate-100 hover:bg-slate-700 transition-colors"
-                >
-                  Apply
-                </button>
+                <div class="space-y-1.5">
+                  <label for="cfgWeeklyCollection" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Weekly Subcollection</label>
+                  <input id="cfgWeeklyCollection" type="text" class="w-full rounded-lg border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2 text-sm" value="weekly_kpi" />
+                </div>
+                <div class="space-y-1.5">
+                  <label for="cfgRecapCollection" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Recap Subcollection</label>
+                  <input id="cfgRecapCollection" type="text" class="w-full rounded-lg border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2 text-sm" value="recap_kpi" />
+                </div>
               </div>
-
-              <div
-                class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-xs space-y-2"
-              >
-                <h3 class="font-semibold text-slate-100 mb-1">
-                  Firestore paths
-                </h3>
-                <p class="text-slate-400">
-                  ตัวอย่างที่บันทึกจริง:
-                </p>
-                <pre
-                  class="text-[10px] text-slate-300 bg-slate-900/80 rounded-lg px-2 py-2 overflow-auto"
-                >
-stores/{storeId}/daily_kpi/{dateKey_fileType}
-stores/{storeId}/weekly_kpi/{dateKey_fileType}
-stores/{storeId}/recap_kpi/{dateKey_fileType}
-
-(สรุปกลาง)
-artifacts/default-app-id/public/data/kpi_reports/{auto-id}
-                </pre>
-                <p class="text-slate-500">
-                  PUBLIC_COLLECTION_PATH ใช้เก็บ summary ทุกไฟล์ที่ประมวลผล
-                </p>
+              
+              <div class="pt-2 border-t border-gray-100 dark:border-slate-700 flex justify-end">
+                <button id="btnApplyConfig" type="button" 
+                  class="px-5 py-2 rounded-lg bg-slate-800 dark:bg-slate-700 text-white text-sm font-medium hover:bg-slate-900 dark:hover:bg-slate-600 transition-colors">
+                  บันทึกการตั้งค่า
+                </button>
               </div>
             </div>
           </div>
         </section>
-        <!-- CONFIG TAB END (Code V08) -->
+        
       </div>
 
-      <!-- CONSOLE LOG -->
-      <section class="mt-4 space-y-2">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-slate-200">Console</h3>
-          <button
-            id="btnClearLog"
-            type="button"
-            class="inline-flex items-center justify-center rounded-xl border border-slate-700 px-3 py-1 text-[11px] text-slate-300 hover:bg-slate-800 transition-colors"
-          >
-            Clear log
+      <!-- CONSOLE LOG (Floating Bottom) -->
+      <section class="mt-6 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div class="bg-gray-50 dark:bg-slate-800 px-4 py-2 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
+          <h3 class="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">System Console</h3>
+          <button id="btnClearLog" type="button" class="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline">
+            Clear
           </button>
         </div>
-        <pre
-          id="consoleLog"
-          class="kpi-scroll max-h-52 rounded-2xl bg-black/80 border border-slate-900 px-3 py-2 text-[11px] leading-relaxed text-slate-200 overflow-auto"
-        ></pre>
+        <pre id="consoleLog" class="kpi-scroll h-32 p-3 text-[10px] text-slate-600 dark:text-slate-400 font-mono overflow-auto bg-white dark:bg-slate-950"></pre>
       </section>
     </main>
   </div>
 
-  <!-- JS LIBS (global for all modules) -->
+  <!-- JS LIBS (global) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <!-- MAIN MODULES – Code V08 -->
+  <!-- MAIN MODULES – Code V08 Light/Dark -->
   <script type="module" src="./js/kpi-core-v08.js"></script>
   <script type="module" src="./js/kpi-login-v08.js"></script>
   <script type="module" src="./js/kpi-input-v08.js"></script>
