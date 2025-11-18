@@ -6,6 +6,8 @@ import {
     setActiveTab 
 } from './kpi-core-v08.js';
 
+import { toggleViewToApp, toggleViewToLogin } from './ui.js';
+
 import { 
     doc, 
     getDoc, 
@@ -13,14 +15,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
 // --- 1. SEED DEFAULT USERS ---
-// สร้าง User ตามโจทย์ ถ้ายังไม่มีใน Database
 async function seedUsers() {
     if (!db) return;
     
     const defaultUsers = [
         { username: 'admin', password: 'admin230049', role: 'Admin', displayName: 'Administrator' },
-        { username: '4340', password: 'SGM4340**', role: 'Store Manager', displayName: 'Manager 4340' }, // Changed Role name
-        { username: '4340s', password: '4340s', role: 'Store', displayName: 'Staff 4340' } // Changed Role name
+        { username: '4340', password: 'SGM4340**', role: 'Store Manager', displayName: 'Manager 4340' }, 
+        { username: '4340s', password: '4340s', role: 'Store', displayName: 'Staff 4340' }
     ];
 
     try {
@@ -35,21 +36,6 @@ async function seedUsers() {
         }
     } catch (error) {
         console.error("[SEED ERROR]", error);
-        // ไม่ pushLog เพื่อไม่ให้รกหน้าจอ User ทั่วไป ยกเว้น error จริงจัง
-    }
-}
-
-// --- 2. UI UPDATES ---
-function updateUserDisplay() {
-    const nameEl = document.getElementById("currentUserDisplay");
-    const roleEl = document.getElementById("currentRoleDisplay");
-    
-    if (nameEl) {
-        // Show displayName if available, else username
-        nameEl.textContent = appState.displayName || appState.username || "-";
-    }
-    if (roleEl) {
-        roleEl.textContent = appState.role || "-";
     }
 }
 
@@ -75,13 +61,11 @@ async function handleLoginSubmit(event) {
     }
 
     try {
-        // UI Loading State
         if(btnSubmit) {
             btnSubmit.innerHTML = 'Checking...';
             btnSubmit.disabled = true;
         }
 
-        // Query Firestore: users/{username}
         const userRef = doc(db, USERS_COLLECTION_ROOT, username);
         const userSnap = await getDoc(userRef);
 
@@ -91,7 +75,6 @@ async function handleLoginSubmit(event) {
 
         const userData = userSnap.data();
 
-        // Simple Password Check (Plaintext as per requirement)
         if (userData.password !== password) {
             throw new Error("รหัสผ่านไม่ถูกต้อง");
         }
@@ -99,15 +82,14 @@ async function handleLoginSubmit(event) {
         // Login Success
         appState.username = userData.username;
         appState.displayName = userData.displayName || userData.username;
-        appState.role = userData.role; // Admin, Store Manager, Store
+        appState.role = userData.role;
 
-        updateUserDisplay();
         pushLog(`[LOGIN] Success: ${appState.username} (${appState.role})`);
         
         if (passInput) passInput.value = ""; // Clear password
         
-        // Auto-redirect to Input tab
-        setActiveTab("tab-input");
+        // SWITCH VIEW
+        toggleViewToApp();
 
     } catch (error) {
         console.error(error);
@@ -125,7 +107,6 @@ function handleLogout() {
     appState.displayName = null;
     appState.username = null;
     appState.role = null;
-    updateUserDisplay();
     
     const nameInput = document.getElementById("loginName");
     const passInput = document.getElementById("loginPassword");
@@ -133,7 +114,9 @@ function handleLogout() {
     if (passInput) passInput.value = "";
     
     pushLog("[LOGIN] Logged out");
-    setActiveTab("tab-login");
+    
+    // SWITCH VIEW
+    toggleViewToLogin();
 }
 
 // Attach listeners and run Seeder
@@ -147,6 +130,5 @@ document.addEventListener("DOMContentLoaded", () => {
         btnLogout.addEventListener("click", handleLogout);
     }
 
-    // Attempt to seed users after a short delay to ensure DB connection
     setTimeout(seedUsers, 2000);
 });

@@ -1,42 +1,9 @@
-// --- UI MODULE (Themable) ---
+// --- UI MODULE ---
 // Contains all functions that render or update the DOM.
 
-import { appState, dailyKpiListenerUnsubscribe, setDailyKpiListenerUnsubscribe } from './kpi-core-v08.js';
+import { appState, dailyKpiListenerUnsubscribe, setDailyKpiListenerUnsubscribe } from './main.js';
 import { setupCalendarListener } from './firestore.js';
 import { getLocalDateAsString, getDaysInMonth, getDaysInWeek, getWeekRange } from './utils.js';
-
-// Theme Management
-export function initTheme() {
-    // Check local storage or system preference
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-    updateThemeToggleIcon();
-}
-
-export function toggleTheme() {
-    if (document.documentElement.classList.contains('dark')) {
-        document.documentElement.classList.remove('dark');
-        localStorage.theme = 'light';
-    } else {
-        document.documentElement.classList.add('dark');
-        localStorage.theme = 'dark';
-    }
-    updateThemeToggleIcon();
-}
-
-function updateThemeToggleIcon() {
-    const isDark = document.documentElement.classList.contains('dark');
-    const icon = isDark ? '☀️' : '🌙'; // Sun for dark mode (to switch to light), Moon for light
-    
-    const mobileBtn = document.getElementById('btnThemeToggle');
-    const desktopBtn = document.getElementById('btnThemeToggleDesktop');
-    
-    if (mobileBtn) mobileBtn.innerHTML = `<span class="text-xl">${icon}</span>`;
-    if (desktopBtn) desktopBtn.innerHTML = `<span class="text-lg">${icon}</span>`;
-}
 
 /**
  * Pushes a message to the console log UI.
@@ -111,10 +78,8 @@ export function updateUserDisplay() {
 export function updateFirebaseStatus(text, colorClass) {
     const el = document.getElementById("firebaseStatus");
     if (!el) return;
-    // Convert text-emerald-400 (dark mode) to text-emerald-600 (light mode) if needed
-    const lightColor = colorClass.replace('400', '600').replace('300', '500');
     el.innerHTML =
-        'Firebase: <span class="' + (lightColor || "") + '">' + text + "</span>";
+        'Firebase: <span class="' + (colorClass || "") + '">' + text + "</span>";
 }
 
 /**
@@ -123,9 +88,8 @@ export function updateFirebaseStatus(text, colorClass) {
 export function updateAuthStatus(text, colorClass) {
     const el = document.getElementById("authStatus");
     if (!el) return;
-    const lightColor = colorClass.replace('400', '600').replace('300', '500');
     el.innerHTML =
-        'Auth: <span class="' + (lightColor || "") + '">' + text + "</span>";
+        'Auth: <span class="' + (colorClass || "") + '">' + text + "</span>";
 }
 
 /**
@@ -173,7 +137,7 @@ export function applyConfigFromUI() {
     }
 }
 
-// --- CALENDAR RENDERING (THEMED) ---
+// --- CALENDAR RENDERING ---
 
 /**
  * Main render function for the calendar view.
@@ -190,13 +154,9 @@ export function renderCalendar() {
      let errorBanner = '';
      if (appState.calendarHasPermissionError) {
          errorBanner = `
-         <div class="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 shadow-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-300" role="alert">
-             <div class="flex items-center gap-2 mb-1">
-                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                <b class="font-semibold">ข้อผิดพลาด: สิทธิ์การเข้าถึงข้อมูล</b>
-             </div>
-             <p>ไม่สามารถอ่านข้อมูล Daily KPI จาก Firestore ได้ (Missing or insufficient permissions)</p>
-             <p class="text-xs mt-2 text-red-500 bg-white/50 p-2 rounded border border-red-100 font-mono dark:bg-black/30 dark:border-red-900">กรุณาตรวจสอบ Firestore Security Rules สำหรับ collectionGroup("${appState.collections.dailySub}")</p>
+         <div class="mb-4 p-3 rounded-lg bg-yellow-100 border border-yellow-300 text-sm text-yellow-800" role="alert">
+             <b class="font-semibold">ข้อผิดพลาด:</b> ไม่สามารถอ่านข้อมูล Daily KPI จาก Firestore ได้ (Missing or insufficient permissions)
+             <p class="text-xs mt-1">กรุณาตรวจสอบ Firestore Security Rules สำหรับ collectionGroup("${appState.collections.dailySub}")</p>
          </div>
          `;
      }
@@ -219,7 +179,7 @@ export function renderCalendar() {
      const selectedDate = new Date(appState.calendarSelectedDate + 'T00:00:00');
 
      el.innerHTML = `
-         <div class="animate-in fade-in duration-300">
+         <div class="bg-slate-900 p-0">
              ${errorBanner}
              ${renderCalendarControls(stores, selectedStore, selectedDate)}
              ${renderCalendarGrid(selectedDate, uploadedDatesSet, todayStr)}
@@ -259,39 +219,29 @@ function renderCalendarControls(stores, selectedStore, selectedDate) {
 
     return `
         <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
-            <!-- Store Selector -->
             <div>
-                <label for="calendar-store-select" class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">เลือกสาขา</label>
-                <div class="relative">
-                    <select id="calendar-store-select"
-                        class="w-full md:w-48 appearance-none rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-sky-900 cursor-pointer">
-                        ${storeOptionsHtml}
-                    </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
-                       <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                </div>
+                <label for="calendar-store-select" class="block text-xs font-medium text-slate-300 mb-1">เลือก Store</label>
+                <select id="calendar-store-select"
+                    class="w-full md:w-48 rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500">
+                    ${storeOptionsHtml}
+                </select>
             </div>
-
-            <!-- Date Navigation -->
-            <div class="flex items-center gap-4 bg-white dark:bg-slate-800 p-1.5 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm">
-                <button id="calendar-prev" class="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            <div class="flex items-center gap-2">
+                <button id="calendar-prev" class="p-2 rounded-full hover:bg-slate-800 transition">
+                    <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                 </button>
-                <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 text-center w-40">${headerText}</h3>
-                <button id="calendar-next" class="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                <h3 class="text-xl font-bold text-slate-100 text-center w-48">${headerText}</h3>
+                <button id="calendar-next" class="p-2 rounded-full hover:bg-slate-800 transition">
+                    <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </button>
             </div>
-
-            <!-- View Mode Toggle -->
-            <div class="flex gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl border dark:border-slate-700">
-                <button data-view-mode="month" class="calendar-view-toggle px-4 py-2 rounded-lg text-xs font-bold transition-all
-                    ${appState.calendarViewMode === 'month' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-sky-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'}">
+            <div class="flex gap-1 bg-slate-800 p-1 rounded-lg">
+                <button data-view-mode="month" class="calendar-view-toggle px-4 py-1.5 rounded-md text-sm font-semibold
+                    ${appState.calendarViewMode === 'month' ? 'bg-slate-700 text-slate-100 shadow' : 'text-slate-400 hover:text-slate-100'}">
                     รายเดือน
                 </button>
-                <button data-view-mode="week" class="calendar-view-toggle px-4 py-2 rounded-lg text-xs font-bold transition-all
-                    ${appState.calendarViewMode === 'week' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-sky-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'}">
+                <button data-view-mode="week" class="calendar-view-toggle px-4 py-1.5 rounded-md text-sm font-semibold
+                    ${appState.calendarViewMode === 'week' ? 'bg-slate-700 text-slate-100 shadow' : 'text-slate-400 hover:text-slate-100'}">
                     รายสัปดาห์
                 </button>
             </div>
@@ -312,101 +262,66 @@ function renderCalendarGrid(selectedDate, uploadedDatesSet, todayStr) {
         days = getDaysInWeek(selectedDate);
     }
     
-    const dayNames = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     return `
-        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
-            <!-- Header Row -->
-            <div class="grid grid-cols-7 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50">
-                ${dayNames.map(name => `
-                    <div class="py-3 text-center text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        ${name}
+        <div class="grid grid-cols-7 gap-1 text-center">
+            ${dayNames.map(name => `<div class="text-xs font-bold text-slate-500 uppercase p-2">${name}</div>`).join('')}
+        </div>
+        <div class="grid grid-cols-7 gap-2">
+            ${days.map(day => {
+                if (!day) {
+                    return `<div class="bg-slate-950 rounded-lg" style="min-height: 7rem;"></div>`;
+                }
+                
+                const dayStr = day.isoDate; // YYYY-MM-DD
+                const isUploaded = uploadedDatesSet.has(dayStr);
+                const isFuture = day.date > today;
+                const isToday = dayStr === todayStr;
+
+                let bgColor = 'bg-slate-800/50';
+                let textColor = 'text-slate-200';
+                let statusText = '';
+                let statusColor = '';
+                let cursor = 'cursor-default';
+
+                if (isUploaded) {
+                    bgColor = 'bg-green-600';
+                    textColor = 'text-white';
+                    statusText = 'Uploaded';
+                    statusColor = 'text-green-100';
+                } else if (isFuture) {
+                    bgColor = 'bg-slate-800/30';
+                    textColor = 'text-slate-600';
+                    statusText = 'Future';
+                } else if (!isToday) {
+                    bgColor = 'bg-red-900/40';
+                    textColor = 'text-red-400 font-semibold';
+                    statusText = 'Missing';
+                    statusColor = 'text-red-500';
+                } else {
+                    bgColor = 'bg-amber-800/40 border border-amber-500';
+                    textColor = 'text-amber-300 font-bold';
+                    statusText = 'Pending';
+                    statusColor = 'text-amber-400';
+                }
+
+                if (day.isPadding) {
+                     bgColor = 'bg-slate-900/30';
+                     textColor = 'text-slate-700';
+                     statusText = '';
+                }
+
+                return `
+                    <div 
+                        class="${bgColor} rounded-lg p-2 flex flex-col justify-between ${cursor}" 
+                        style="min-height: 7rem;" 
+                        title="${dayStr} - ${statusText || '...'}">
+                        <span class="text-sm font-bold self-end ${textColor}">${day.day}</span>
+                        <span class="text-xs font-semibold ${statusColor}">${statusText}</span>
                     </div>
-                `).join('')}
-            </div>
-            
-            <!-- Calendar Grid -->
-            <div class="grid grid-cols-7 bg-gray-200 dark:bg-slate-700 gap-px"> 
-                ${days.map(day => {
-                    if (!day) {
-                        return `<div class="bg-gray-50 dark:bg-slate-800/50 min-h-[120px]"></div>`;
-                    }
-                    
-                    const dayStr = day.isoDate; // YYYY-MM-DD
-                    const isUploaded = uploadedDatesSet.has(dayStr);
-                    const isFuture = day.date > today;
-                    const isToday = dayStr === todayStr;
-
-                    // Base classes
-                    let containerClass = "bg-white dark:bg-slate-800 min-h-[120px] p-3 flex flex-col justify-between transition-all relative group";
-                    let dateTextClass = "text-sm font-medium text-slate-700 dark:text-slate-300 w-7 h-7 flex items-center justify-center rounded-full";
-                    let statusHtml = "";
-                    let cursor = "cursor-default";
-
-                    // Logic for coloring
-                    if (isUploaded) {
-                        // Success State
-                        containerClass += " hover:bg-green-50/50 dark:hover:bg-green-900/20 cursor-pointer border-l-4 border-l-green-500";
-                        dateTextClass = "text-sm font-bold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 w-7 h-7 flex items-center justify-center rounded-full";
-                        statusHtml = `
-                            <div class="mt-2">
-                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-semibold">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
-                                    เรียบร้อย
-                                </span>
-                            </div>
-                        `;
-                        cursor = "cursor-pointer";
-                    } else if (isFuture) {
-                        // Future State
-                        containerClass += " bg-gray-50/50 dark:bg-slate-800/50";
-                        dateTextClass = "text-sm font-normal text-gray-400 dark:text-slate-600";
-                        statusHtml = `<span class="text-[10px] text-gray-300 dark:text-slate-600 font-medium">Future</span>`;
-                    } else if (!isToday) {
-                        // Missing (Past) State
-                        containerClass += " bg-red-50/30 dark:bg-red-900/10 hover:bg-red-50/80 dark:hover:bg-red-900/20";
-                        dateTextClass = "text-sm font-semibold text-red-600 dark:text-red-400";
-                        statusHtml = `
-                            <div class="mt-2">
-                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-300 text-xs font-medium">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                    ขาดส่ง
-                                </span>
-                            </div>
-                        `;
-                    } else {
-                        // Today (Pending) State
-                        containerClass += " bg-white dark:bg-slate-800 ring-2 ring-inset ring-blue-400 dark:ring-sky-500";
-                        dateTextClass = "text-sm font-bold text-white bg-blue-600 dark:bg-sky-600 w-7 h-7 flex items-center justify-center rounded-full shadow-md shadow-blue-200 dark:shadow-none";
-                        statusHtml = `
-                             <div class="mt-2 animate-pulse">
-                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 dark:bg-sky-900/40 text-blue-600 dark:text-sky-300 text-xs font-bold border border-blue-100 dark:border-sky-800">
-                                    รอข้อมูล
-                                </span>
-                            </div>
-                        `;
-                    }
-
-                    // Padding days (not in current month)
-                    if (day.isPadding) {
-                         containerClass = "bg-gray-50/80 dark:bg-slate-900/80 min-h-[120px] p-3 flex flex-col justify-between opacity-60";
-                         dateTextClass = "text-sm font-normal text-gray-300 dark:text-slate-600";
-                         statusHtml = "";
-                    }
-
-                    return `
-                        <div 
-                            class="${containerClass} ${cursor}" 
-                            title="${dayStr}"
-                        >
-                            <div class="flex justify-end">
-                                <span class="${dateTextClass}">${day.day}</span>
-                            </div>
-                            ${statusHtml}
-                        </div>
-                    `;
-                }).join('')}
-            </div>
+                `;
+            }).join('')}
         </div>
     `;
 }
@@ -416,22 +331,22 @@ function renderCalendarGrid(selectedDate, uploadedDatesSet, todayStr) {
  */
 function renderCalendarLegend() {
     return `
-        <div class="flex flex-wrap gap-6 justify-center mt-8 pt-6 border-t border-gray-100 dark:border-slate-800">
+        <div class="flex flex-wrap gap-x-6 gap-y-2 justify-center mt-6 pt-4 border-t border-slate-800">
             <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-full bg-green-500 ring-4 ring-green-100 dark:ring-green-900/30"></div>
-                <span class="text-sm text-slate-600 dark:text-slate-400 font-medium">ส่งข้อมูลแล้ว</span>
+                <div class="w-4 h-4 rounded-full bg-green-600"></div>
+                <span class="text-sm text-slate-400">อัปโหลด Daily KPI แล้ว</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-full bg-red-500 ring-4 ring-red-100 dark:ring-red-900/30"></div>
-                <span class="text-sm text-slate-600 dark:text-slate-400 font-medium">ขาดส่ง (ย้อนหลัง)</span>
+                <div class="w-4 h-4 rounded-full bg-red-900/40"></div>
+                <span class="text-sm text-slate-400">ยังไม่ได้อัปโหลด (ย้อนหลัง)</span>
             </div>
              <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-full bg-blue-600 dark:bg-sky-600 ring-4 ring-blue-100 dark:ring-sky-900/30"></div>
-                <span class="text-sm text-slate-600 dark:text-slate-400 font-medium">วันนี้ (รอข้อมูล)</span>
+                <div class="w-4 h-4 rounded-full bg-amber-800/40"></div>
+                <span class="text-sm text-slate-400">วันนี้ (รอดำเนินการ)</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-full bg-gray-300 dark:bg-slate-600"></div>
-                <span class="text-sm text-slate-400 dark:text-slate-500">อนาคต</span>
+                <div class="w-4 h-4 rounded-full bg-slate-800/30"></div>
+                <span class="text-sm text-slate-400">อนาคต</span>
             </div>
         </div>
     `;

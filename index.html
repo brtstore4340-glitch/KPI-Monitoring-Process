@@ -1,21 +1,21 @@
 <!--
-  KPI Data Processor – Code V08 (Theme Support)
+  KPI Data Processor – Code V08 (Theme Support & Standard Login Flow)
   - Modular JS Structure
-  - Supports Light (Chrome Blue) & Dark (Black Tone) themes
+  - Login Screen First -> Main App
 -->
 
 <!DOCTYPE html>
-<html lang="th" class="light"> <!-- Default to light class, JS will update -->
+<html lang="th" class="light">
 <head>
   <meta charset="UTF-8" />
-  <title>KPI Data Processor – V08 Theme</title>
+  <title>KPI Data Processor – V08</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Tailwind CDN with Config for Dark Mode -->
+  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class', // Enable class-based dark mode
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
@@ -38,121 +38,117 @@
     body {
       transition: background-color 0.3s, color 0.3s;
     }
-    
-    /* Custom Scrollbar - Adaptive */
-    .kpi-scroll {
-      scrollbar-width: thin;
-    }
-    /* Light Mode Scrollbar */
-    .kpi-scroll::-webkit-scrollbar {
-      width: 6px;
-    }
-    .kpi-scroll::-webkit-scrollbar-track {
-      background: #f1f5f9;
-    }
-    .kpi-scroll::-webkit-scrollbar-thumb {
-      background-color: #cbd5e1;
-      border-radius: 999px;
-    }
-    /* Dark Mode Scrollbar Override */
-    .dark .kpi-scroll {
-      scrollbar-color: #475569 #0f172a;
-    }
-    .dark .kpi-scroll::-webkit-scrollbar-track {
-      background: #0f172a;
-    }
-    .dark .kpi-scroll::-webkit-scrollbar-thumb {
-      background-color: #475569;
-    }
+    .kpi-scroll { scrollbar-width: thin; }
+    .kpi-scroll::-webkit-scrollbar { width: 6px; }
+    .kpi-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+    .kpi-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 999px; }
+    .dark .kpi-scroll { scrollbar-color: #475569 #0f172a; }
+    .dark .kpi-scroll::-webkit-scrollbar-track { background: #0f172a; }
+    .dark .kpi-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
 
-    /* Tab Animations & Styles */
-    .tab-btn {
-      transition: all 0.2s ease;
-    }
-    /* Light Mode Tabs */
+    .tab-btn { transition: all 0.2s ease; }
     .tab-btn-active {
-      background-color: #eff6ff; /* blue-50 */
-      color: #2563eb; /* blue-600 */
+      background-color: #eff6ff; color: #2563eb;
       border-bottom: 2px solid #2563eb;
     }
-    .tab-btn-inactive {
-      color: #64748b; /* slate-500 */
-      border-bottom: 2px solid transparent;
-    }
-    .tab-btn-inactive:hover {
-      color: #334155; /* slate-700 */
-      background-color: #f8fafc;
-    }
-    
-    /* Dark Mode Tabs Overrides */
     .dark .tab-btn-active {
-      background-color: #1e293b; /* slate-800 */
-      color: #38bdf8; /* sky-400 */
+      background-color: #1e293b; color: #38bdf8;
       border-bottom: 2px solid #38bdf8;
     }
-    .dark .tab-btn-inactive {
-      color: #94a3b8; /* slate-400 */
+    .tab-btn-inactive {
+      color: #64748b; border-bottom: 2px solid transparent;
+    }
+    .dark .tab-btn-inactive { color: #94a3b8; }
+    .tab-btn-inactive:hover {
+      color: #334155; background-color: #f8fafc;
     }
     .dark .tab-btn-inactive:hover {
-      color: #f1f5f9; /* slate-100 */
-      background-color: #0f172a; /* slate-950 */
+      color: #f1f5f9; background-color: #0f172a;
     }
+    
+    /* Transitions for view switching */
+    .fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
-<body class="bg-gray-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans">
-  <div class="min-h-screen flex flex-col items-center">
+<body class="bg-gray-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans flex flex-col items-center justify-center">
+
+  <!-- --- PART 1: LOGIN VIEW (Visible Initially) --- -->
+  <div id="view-login" class="w-full max-w-md p-6 fade-in">
+    <div class="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-2xl p-8">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-blue-600 dark:text-sky-400 mb-2">KPI Processor</h1>
+        <p class="text-slate-500 dark:text-slate-400 text-sm">ระบบจัดการข้อมูล KPI ภายใน</p>
+      </div>
+
+      <form id="loginForm" class="space-y-5">
+        <div class="space-y-1.5">
+          <label for="loginName" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Username</label>
+          <input id="loginName" type="text" placeholder="admin, 4340, etc." required
+            class="w-full rounded-lg border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-slate-900 dark:text-white px-4 py-3 text-sm focus:border-blue-500 dark:focus:border-sky-500 focus:ring-blue-500 dark:focus:ring-sky-500 shadow-sm transition-colors" />
+        </div>
+
+        <div class="space-y-1.5">
+          <label for="loginPassword" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Password</label>
+          <input id="loginPassword" type="password" placeholder="••••••••" required
+            class="w-full rounded-lg border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-slate-900 dark:text-white px-4 py-3 text-sm focus:border-blue-500 dark:focus:border-sky-500 focus:ring-blue-500 dark:focus:ring-sky-500 shadow-sm transition-colors" />
+        </div>
+
+        <button type="submit" 
+          class="w-full rounded-lg bg-blue-600 dark:bg-sky-600 px-6 py-3 text-sm font-bold text-white hover:bg-blue-700 dark:hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-sky-500 focus:ring-offset-2 shadow-lg transition-all transform active:scale-95 mt-2">
+          เข้าสู่ระบบ
+        </button>
+      </form>
+      
+      <div class="mt-6 pt-6 border-t border-gray-100 dark:border-slate-800 text-center text-xs text-slate-400">
+        <div id="firebaseStatusLogin">Connecting to System...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- --- PART 2: MAIN APP VIEW (Hidden Initially) --- -->
+  <div id="view-app" class="w-full min-h-screen flex flex-col items-center hidden fade-in">
     
     <!-- HEADER -->
-    <header class="w-full max-w-5xl px-6 pt-8 pb-6">
+    <header class="w-full max-w-5xl px-6 pt-6 pb-4">
       <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div class="flex items-center justify-between w-full md:w-auto">
           <div>
-            <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
               KPI Data Processor
             </h1>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              ระบบจัดการข้อมูล KPI รายวัน / รายสัปดาห์ (V08 Theme)
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              V08 · Logged in as <span id="headerUserDisplay" class="font-bold text-blue-600 dark:text-sky-400">...</span>
             </p>
           </div>
           
-          <!-- Theme Toggle Button (Mobile/Desktop) -->
-          <button id="btnThemeToggle" class="md:hidden p-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-yellow-400 shadow-sm border border-gray-200 dark:border-slate-700 transition-colors">
-             <!-- Icon will be set by JS -->
-             <span class="text-xl">🌓</span>
+          <!-- Theme Toggle (Mobile) -->
+          <button id="btnThemeToggle" class="md:hidden p-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-yellow-400 shadow-sm border border-gray-200 dark:border-slate-700">
+             <span class="text-lg">🌓</span>
           </button>
         </div>
 
         <div class="flex items-center gap-3">
-            <!-- Theme Toggle Button (Desktop) -->
-            <button id="btnThemeToggleDesktop" class="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-yellow-400 shadow-sm border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors" title="Switch Theme">
-                <!-- Icon will be set by JS -->
+            <!-- Theme Toggle (Desktop) -->
+            <button id="btnThemeToggleDesktop" class="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-yellow-400 shadow-sm border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
                 <span class="text-lg">🌓</span>
             </button>
 
-            <div class="text-right text-xs font-medium text-slate-400 bg-white dark:bg-slate-900 px-4 py-2 rounded-lg shadow-sm border border-gray-100 dark:border-slate-800">
-              <div id="firebaseStatus" class="flex items-center justify-end gap-2">
-                Firebase: <span class="text-amber-500">initializing…</span>
-              </div>
-              <div id="authStatus" class="flex items-center justify-end gap-2">
-                Auth: <span class="text-amber-500">signing in…</span>
-              </div>
-              <div id="uidStatus" class="truncate max-w-[150px] text-slate-300 dark:text-slate-600"></div>
-            </div>
+            <button id="btnLogout" 
+              class="px-4 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors border border-red-100 dark:border-red-900/50">
+              ออกจากระบบ
+            </button>
         </div>
       </div>
     </header>
 
-    <!-- MAIN CARD -->
+    <!-- MAIN CONTENT -->
     <main class="w-full max-w-5xl px-4 pb-12 flex-1">
       <div class="bg-white dark:bg-slate-900/80 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden transition-colors duration-300">
         
-        <!-- TAB BAR -->
-        <div class="border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 pt-4 flex items-end justify-between gap-4">
-          <div class="flex flex-wrap gap-1 -mb-[1px]">
-            <button class="tab-btn px-5 py-3 text-sm font-semibold tab-btn-active" data-tab="tab-login">
-              Login
-            </button>
-            <button class="tab-btn px-5 py-3 text-sm font-semibold tab-btn-inactive" data-tab="tab-input">
+        <!-- TAB BAR (No Login Tab) -->
+        <div class="border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 pt-4 flex items-end gap-1">
+            <button class="tab-btn px-5 py-3 text-sm font-semibold tab-btn-active" data-tab="tab-input">
               Input Data
             </button>
             <button class="tab-btn px-5 py-3 text-sm font-semibold tab-btn-inactive" data-tab="tab-report">
@@ -164,88 +160,12 @@
              <button class="tab-btn px-5 py-3 text-sm font-semibold tab-btn-inactive" data-tab="tab-config">
               Config
             </button>
-          </div>
-          
-          <div class="hidden md:flex flex-col items-end text-xs text-slate-500 dark:text-slate-400 pb-3">
-            <div class="flex items-center gap-2">
-              User: <span id="currentUserDisplay" class="font-bold text-slate-700 dark:text-slate-200">-</span>
-            </div>
-            <div class="flex items-center gap-2 mt-0.5">
-              Role: <span id="currentRoleDisplay" class="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-sky-300 border border-slate-200 dark:border-slate-700 font-medium">-</span>
-            </div>
-          </div>
         </div>
 
         <!-- TAB PANELS -->
-
-        <!-- LOGIN TAB -->
-        <section id="tab-login" class="tab-panel px-6 py-8 md:px-10 md:py-10">
-          <div class="grid gap-10 md:grid-cols-[1fr,1fr] items-start">
-            
-            <!-- Login Form -->
-            <div class="space-y-6">
-              <div>
-                <h2 class="text-xl font-bold text-slate-800 dark:text-white">เข้าสู่ระบบ</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  กรุณาระบุ Username และ Password เพื่อเข้าใช้งานระบบ
-                </p>
-              </div>
-
-              <form id="loginForm" class="space-y-5">
-                <div class="space-y-1.5">
-                  <label for="loginName" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Username</label>
-                  <input id="loginName" type="text" placeholder="เช่น admin, 4340" required
-                    class="w-full rounded-lg border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-slate-900 dark:text-white px-4 py-2.5 text-sm focus:border-blue-500 dark:focus:border-sky-500 focus:ring-blue-500 dark:focus:ring-sky-500 shadow-sm" />
-                </div>
-                <!-- Role Dropdown Removed -->
-
-                <div class="space-y-1.5">
-                  <label for="loginPassword" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    Password
-                  </label>
-                  <input id="loginPassword" type="password" placeholder="••••••••" required
-                    class="w-full rounded-lg border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-slate-900 dark:text-white px-4 py-2.5 text-sm focus:border-blue-500 dark:focus:border-sky-500 focus:ring-blue-500 dark:focus:ring-sky-500 shadow-sm" />
-                </div>
-
-                <div class="pt-4 flex items-center gap-3">
-                  <button type="submit" 
-                    class="inline-flex items-center justify-center rounded-lg bg-blue-600 dark:bg-sky-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-blue-700 dark:hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-sky-500 focus:ring-offset-2 shadow-md transition-all">
-                    เข้าสู่ระบบ
-                  </button>
-                  <button type="button" id="btnLogout" 
-                    class="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-slate-700 transition-all">
-                    ออกจากระบบ
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            <!-- Info Card -->
-            <div class="rounded-2xl bg-blue-50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 p-6">
-              <h3 class="font-bold text-blue-900 dark:text-sky-300 mb-3 flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                สิทธิ์การใช้งาน (Roles)
-              </h3>
-              <ul class="space-y-3 text-sm text-blue-800 dark:text-slate-300">
-                <li class="flex items-start gap-2">
-                  <span class="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-sky-400 shrink-0"></span>
-                  <span><b>Admin:</b> เข้าถึงได้ทุกฟังก์ชัน แก้ไข Config และจัดการฐานข้อมูลได้</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <span class="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                  <span><b>Store Manager:</b> อัปโหลดข้อมูล และดูรายงานเชิงลึกได้</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <span class="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
-                  <span><b>Store:</b> อัปโหลดข้อมูลประจำวัน และดูรายงานสรุปพื้นฐาน</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
+        
         <!-- INPUT TAB -->
-        <section id="tab-input" class="tab-panel px-6 py-8 md:px-10 md:py-10 hidden">
+        <section id="tab-input" class="tab-panel px-6 py-8 md:px-10 md:py-10">
           <div class="flex flex-col gap-8">
             <div class="flex items-baseline justify-between border-b border-gray-100 dark:border-slate-800 pb-4">
               <h2 class="text-xl font-bold text-slate-800 dark:text-white">อัปโหลดไฟล์ข้อมูล</h2>
@@ -253,7 +173,6 @@
             </div>
 
             <div class="grid gap-6 lg:grid-cols-2">
-              
               <!-- Daily Card -->
               <div class="group bg-white dark:bg-slate-800/50 rounded-xl border border-gray-200 dark:border-slate-700 p-5 hover:border-blue-300 dark:hover:border-sky-500 hover:shadow-md transition-all">
                 <div class="flex justify-between items-start mb-4">
@@ -265,7 +184,6 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                   </div>
                 </div>
-                
                 <div class="space-y-3">
                   <input id="dailyFile" type="file" accept=".zip,.xlsx" 
                     class="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 dark:file:bg-sky-900/50 file:text-blue-700 dark:file:text-sky-300 hover:file:bg-blue-100 dark:hover:file:bg-sky-800 transition-all"/>
@@ -287,7 +205,6 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z"></path></svg>
                   </div>
                 </div>
-
                 <div class="space-y-3">
                   <input id="weeklyFile" type="file" accept=".zip,.xlsx" 
                     class="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-900/50 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-800 transition-all"/>
@@ -309,7 +226,6 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                   </div>
                 </div>
-
                 <div class="space-y-3">
                   <input id="recapFile" type="file" accept=".zip,.xlsx" 
                     class="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/50 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800 transition-all"/>
@@ -319,12 +235,11 @@
                   </button>
                 </div>
               </div>
-              
             </div>
           </div>
         </section>
 
-        <!-- REPORT TAB (Summary Log) -->
+        <!-- REPORT TAB -->
         <section id="tab-report" class="tab-panel px-6 py-8 md:px-10 md:py-10 hidden">
           <div class="flex flex-col gap-6">
             <div class="flex items-center justify-between">
@@ -335,7 +250,6 @@
                 Refresh
               </button>
             </div>
-            
             <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden shadow-inner">
               <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex justify-between items-center">
                 <span class="text-xs font-mono text-slate-400">system_output.log</span>
@@ -364,7 +278,6 @@
                 ตั้งค่า Collection names สำหรับ Firestore (Advanced)
               </p>
             </div>
-
             <div class="bg-white dark:bg-slate-800/50 rounded-xl border border-gray-200 dark:border-slate-700 p-6 shadow-sm space-y-6">
               <div class="grid gap-5">
                 <div class="space-y-1.5">
@@ -380,7 +293,6 @@
                   <input id="cfgRecapCollection" type="text" class="w-full rounded-lg border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2 text-sm" value="recap_kpi" />
                 </div>
               </div>
-              
               <div class="pt-2 border-t border-gray-100 dark:border-slate-700 flex justify-end">
                 <button id="btnApplyConfig" type="button" 
                   class="px-5 py-2 rounded-lg bg-slate-800 dark:bg-slate-700 text-white text-sm font-medium hover:bg-slate-900 dark:hover:bg-slate-600 transition-colors">
