@@ -66,7 +66,8 @@ function applyTheme(theme) {
 export function initTheme() {
   let theme = localStorage.getItem("kpi-theme");
   if (!theme) {
-    const prefersDark = window.matchMedia &&
+    const prefersDark =
+      window.matchMedia &&
       window.matchMedia("(prefers-color-scheme: dark)").matches;
     theme = prefersDark ? "dark" : "light";
   }
