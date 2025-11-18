@@ -111,9 +111,9 @@ async function seedUsers() {
     }
 
     const defaultUsers = [
-      { username: "admin", password: "admin230049", role: "Admin",        displayName: "Administrator" },
-      { username: "4340",  password: "SGM4340**",  role: "Store Manager", displayName: "Manager 4340" },
-      { username: "4340s", password: "4340s",      role: "Store",         displayName: "Staff 4340" }
+      { username: "admin", password: "Admin230049", role: "Admin",        displayName: "Administrator" },
+      { username: "4340",  password: "SGM4340s**",  role: "Store Manager", displayName: "Manager 4340" },
+      { username: "4340s", password: "Store4340s",      role: "Store",         displayName: "Staff 4340" }
     ];
 
     for (const user of defaultUsers) {
