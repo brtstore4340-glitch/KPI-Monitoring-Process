@@ -1,0 +1,1008 @@
+<!-- Code Version: V05 -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>KPI Data Processor – V05</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Font: Noto Sans Thai -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <!-- JSZip (สำหรับรองรับกรณี V05 เดิมใช้ .zip) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <style>
+    body {
+      font-family: "Noto Sans Thai", system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      scroll-behavior: smooth;
+    }
+
+    .tab-active {
+      border-bottom-color: #10b981;
+      color: #10b981;
+      font-weight: 700;
+    }
+    .tab-inactive {
+      border-bottom-color: transparent;
+      color: #6b7280;
+    }
+    .tab-inactive:hover {
+      border-bottom-color: #d1d5db;
+      color: #111827;
+    }
+
+    .log-area {
+      max-height: 220px;
+      overflow-y: auto;
+      font-size: 0.75rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+        "Courier New", monospace;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 antialiased">
+  <!-- Root -->
+  <div id="app-root" class="min-h-screen flex items-center justify-center">
+    <div class="text-center p-8">
+      <svg
+        class="animate-spin h-10 w-10 text-green-600 mx-auto"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          class="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          stroke-width="4"
+        ></circle>
+        <path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        ></path>
+      </svg>
+      <h1 class="text-xl font-semibold text-gray-700 mt-4">
+        กำลังโหลดแอปพลิเคชัน...
+      </h1>
+      <p class="text-gray-500">กรุณารอสักครู่</p>
+    </div>
+  </div>
+
+  <!-- App Script -->
+  <script type="module">
+    // ---------- Firebase Imports ----------
+    import {
+      initializeApp as firebaseInitializeApp,
+    } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signInAnonymously,
+      signOut,
+    } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+    import {
+      getFirestore,
+      serverTimestamp,
+      doc,
+      setDoc,
+    } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+
+    // ---------- Firebase Config ----------
+    const firebaseConfig = {
+      apiKey: "AIzaSyAHMYpNA5Kh4uPYogaBzmNZssoQ6p53ybM",
+      authDomain: "studio-3431359559-3d25c.firebaseapp.com",
+      projectId: "studio-3431359559-3d25c",
+      storageBucket: "studio-3431359559-3d25c.firebasestorage.app",
+      messagingSenderId: "355345619214",
+      appId: "1:355345619214:web:6c23fcb229d42c13ff5f5f",
+    };
+
+    let app, auth, db;
+
+    // ---------- Global State ----------
+    const state = {
+      isAuthReady: false,
+      user: null,
+      userRole: null,        // "admin" | "management" | "normal"
+      activeTab: "login",    // "login" | "input" | "report" | "config"
+    };
+
+    let isRenderPending = false;
+
+    function setState(patch) {
+      Object.assign(state, patch);
+      if (!isRenderPending) {
+        isRenderPending = true;
+        requestAnimationFrame(() => {
+          render();
+          isRenderPending = false;
+        });
+      }
+    }
+
+    // ---------- Helpers ----------
+    function canAccessTab(tab, role) {
+      if (!role) return false;
+      if (role === "admin") return true;
+      if (role === "management") {
+        return tab === "input" || tab === "report";
+      }
+      if (role === "normal") {
+        return tab === "input";
+      }
+      return false;
+    }
+
+    function roleLabel(role) {
+      switch (role) {
+        case "admin": return "Admin";
+        case "management": return "Management";
+        case "normal": return "Normal";
+        default: return "-";
+      }
+    }
+
+    function logMessage(areaId, msg, type = "info") {
+      const el = document.getElementById(areaId);
+      if (!el) return;
+
+      const time = new Date().toLocaleTimeString("th-TH", { hour12: false });
+      const prefix =
+        type === "error" ? "[ERROR]" :
+        type === "success" ? "[OK]" :
+        type === "warn" ? "[WARN]" : "[INFO]";
+
+      el.textContent += `${time} ${prefix} ${msg}\n`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // ใช้เมื่อ import เสร็จ 1 งาน (log summary)
+    function logImportSummary(areaId, totalFiles, totalRows) {
+      logMessage(
+        areaId,
+        `ประมวลผลเสร็จแล้ว | Files: ${totalFiles} | Rows: ${totalRows}`,
+        "success"
+      );
+    }
+
+    // ---------- Render ----------
+    function render() {
+      const root = document.getElementById("app-root");
+      if (!root) return;
+
+      if (!state.isAuthReady) {
+        root.innerHTML = `
+          <div class="min-h-screen flex items-center justify-center">
+            <div class="text-center p-8">
+              <svg class="animate-spin h-10 w-10 text-green-600 mx-auto"
+                   xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10"
+                        stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <h1 class="text-xl font-semibold text-gray-700 mt-4">
+                กำลังเชื่อมต่อ Firebase...
+              </h1>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const isLoggedIn = !!state.user;
+      const hasRole = !!state.userRole;
+
+      if (state.activeTab !== "login" &&
+          (!isLoggedIn || !hasRole || !canAccessTab(state.activeTab, state.userRole))) {
+        state.activeTab = "login";
+      }
+
+      root.innerHTML = `
+        <div class="min-h-screen w-full flex flex-col">
+          <!-- Top Bar -->
+          <header class="bg-white shadow">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+              <div>
+                <h1 class="text-xl sm:text-2xl font-bold text-gray-800">
+                  KPI Data Processor
+                  <span class="text-xs sm:text-sm text-gray-400 align-middle ml-2">Code V05</span>
+                </h1>
+                <p class="text-xs sm:text-sm text-gray-500">
+                  Firebase Web • Role-based Tabs (Login / Input / Report / Config)
+                </p>
+              </div>
+              <div class="flex items-center gap-3 text-sm">
+                ${
+                  isLoggedIn
+                    ? `
+                  <div class="text-right">
+                    <div class="font-semibold text-gray-700">
+                      UID: <span class="font-mono text-xs">${state.user.uid.slice(0, 8)}...</span>
+                    </div>
+                    <div class="text-gray-500">
+                      Role: <span class="font-semibold">${hasRole ? roleLabel(state.userRole) : "ยังไม่เลือก"}</span>
+                    </div>
+                  </div>
+                  <button id="btn-logout"
+                          class="px-3 py-1.5 rounded-lg border border-red-500 text-red-600 text-xs sm:text-sm font-semibold hover:bg-red-50">
+                    Logout
+                  </button>
+                `
+                    : `<span class="text-gray-500 text-xs sm:text-sm">ยังไม่ได้ล็อกอิน</span>`
+                }
+              </div>
+            </div>
+          </header>
+
+          <!-- Tabs -->
+          <nav class="bg-white border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div class="flex space-x-6 overflow-x-auto">
+                ${renderTabButton("login", "Login")}
+                ${renderTabButton("input", "Input Data")}
+                ${renderTabButton("report", "Report Data")}
+                ${renderTabButton("config", "Config")}
+              </div>
+            </div>
+          </nav>
+
+          <!-- Content -->
+          <main class="flex-1 bg-gray-100">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+              ${
+                state.activeTab === "login"
+                  ? renderLoginTab()
+                  : state.activeTab === "input"
+                  ? renderInputTab()
+                  : state.activeTab === "report"
+                  ? renderReportTab()
+                  : renderConfigTab()
+              }
+            </div>
+          </main>
+        </div>
+      `;
+
+      attachEventListeners();
+    }
+
+    function renderTabButton(key, label) {
+      const isActive = state.activeTab === key;
+      const disabled =
+        key !== "login" &&
+        (!state.user || !state.userRole || !canAccessTab(key, state.userRole));
+
+      const baseClass =
+        "py-3 px-5 text-sm sm:text-base font-semibold border-b-4 whitespace-nowrap transition-colors";
+      const stateClass = isActive ? "tab-active" : "tab-inactive";
+      const disabledClass = disabled
+        ? "opacity-40 cursor-not-allowed"
+        : "cursor-pointer";
+
+      return `
+        <button
+          class="main-tab ${baseClass} ${stateClass} ${disabledClass}"
+          data-tab="${key}"
+          ${disabled ? "disabled" : ""}
+        >
+          ${label}
+        </button>
+      `;
+    }
+
+    // ---------- Login Tab ----------
+    function renderLoginTab() {
+      const isLoggedIn = !!state.user;
+      const hasRole = !!state.userRole;
+
+      return `
+        <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8">
+          <h2 class="text-2xl font-bold text-gray-800 mb-4">
+            ลงชื่อเข้าใช้ & เลือกสิทธิ์การใช้งาน
+          </h2>
+          <p class="text-sm text-gray-500 mb-6">
+            1) Login ด้วย Firebase (Anonymous)  2) เลือก Role  3) เข้าใช้งานเมนู Input / Report / Config
+          </p>
+
+          <div class="grid md:grid-cols-2 gap-8">
+            <!-- Col 1: Login -->
+            <section>
+              <h3 class="text-lg font-semibold text-gray-800 mb-3">ขั้นที่ 1: Login</h3>
+              ${
+                isLoggedIn
+                  ? `
+                <div class="p-4 rounded-lg border border-green-100 bg-green-50 mb-3">
+                  <p class="text-sm text-green-800 font-semibold mb-1">
+                    ✅ Login เรียบร้อยแล้ว
+                  </p>
+                  <p class="text-xs text-green-700">
+                    UID: <span class="font-mono break-all">${state.user.uid}</span>
+                  </p>
+                </div>
+              `
+                  : `
+                <p class="text-sm text-gray-600 mb-4">
+                  กดปุ่มด้านล่างเพื่อ Login แบบ Anonymous
+                </p>
+                <button id="btn-login-anon"
+                        class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-green-600 text-white text-sm font-semibold shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                  Login แบบ Anonymous
+                </button>
+              `
+              }
+            </section>
+
+            <!-- Col 2: Role -->
+            <section>
+              <h3 class="text-lg font-semibold text-gray-800 mb-3">
+                ขั้นที่ 2: เลือก Role การใช้งาน
+              </h3>
+
+              <p class="text-xs text-gray-500 mb-2">
+                สิทธิ์แต่ละ Role:
+              </p>
+              <ul class="text-xs text-gray-600 mb-4 list-disc pl-5 space-y-1">
+                <li><strong>Admin</strong>: ใช้ได้ทุกเมนู (Input / Report / Config)</li>
+                <li><strong>Management</strong>: ใช้ Input + Report</li>
+                <li><strong>Normal</strong>: ใช้ Input อย่างเดียว</li>
+              </ul>
+
+              ${
+                !state.user
+                  ? `
+                <div class="p-4 rounded-lg border border-yellow-200 bg-yellow-50 text-xs text-yellow-800">
+                  ต้อง Login ก่อนจึงจะเลือก Role ได้
+                </div>
+              `
+                  : `
+                <div class="space-y-3 mb-4">
+                  <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="radio" name="role" value="admin"
+                           class="h-4 w-4 text-green-600 border-gray-300"
+                           ${state.userRole === "admin" ? "checked" : ""}>
+                    <div>
+                      <div class="text-sm font-semibold">Admin</div>
+                      <div class="text-xs text-gray-500">จัดการทุกอย่าง รวมถึง Config ระบบ</div>
+                    </div>
+                  </label>
+
+                  <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="radio" name="role" value="management"
+                           class="h-4 w-4 text-green-600 border-gray-300"
+                           ${state.userRole === "management" ? "checked" : ""}>
+                    <div>
+                      <div class="text-sm font-semibold">Management</div>
+                      <div class="text-xs text-gray-500">ดู Report และใช้งาน Input ได้</div>
+                    </div>
+                  </label>
+
+                  <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="radio" name="role" value="normal"
+                           class="h-4 w-4 text-green-600 border-gray-300"
+                           ${state.userRole === "normal" ? "checked" : ""}>
+                    <div>
+                      <div class="text-sm font-semibold">Normal</div>
+                      <div class="text-xs text-gray-500">ใช้งานเฉพาะ Input Data</div>
+                    </div>
+                  </label>
+                </div>
+
+                <button id="btn-save-role"
+                        class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  บันทึก Role และไปหน้า Input
+                </button>
+                ${
+                  hasRole
+                    ? `<p class="mt-2 text-xs text-gray-500">
+                         Role ปัจจุบัน: <span class="font-semibold">${roleLabel(
+                           state.userRole
+                         )}</span> (เปลี่ยนได้ตลอด)
+                       </p>`
+                    : ""
+                }
+              `
+              }
+            </section>
+          </div>
+        </div>
+      `;
+    }
+
+    // ---------- Input Tab (ย้าย logic V05 มาวางใน handler แต่ละส่วน) ----------
+    function renderInputTab() {
+      return `
+        <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8 space-y-8">
+          <div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Input Data</h2>
+            <p class="text-sm text-gray-500">
+              โซนนี้สำหรับอัปโหลดไฟล์ Daily / Weekly / Store Recap ตาม logic จาก Code V05 เดิม
+            </p>
+          </div>
+
+          <!-- Row: Daily + Weekly -->
+          <div class="grid md:grid-cols-2 gap-6">
+            <!-- Daily -->
+            <section class="border border-gray-200 rounded-lg p-4 space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-800">
+                    1) Daily Sales KPI
+                  </h3>
+                  <p class="text-xs text-gray-500">
+                    รองรับไฟล์ .xlsx / .csv / .zip ตาม spec V05 เดิม
+                  </p>
+                </div>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
+                  Import
+                </span>
+              </div>
+
+              <div class="space-y-2">
+                <input
+                  id="daily-file-input"
+                  type="file"
+                  class="block w-full text-xs text-gray-700 border border-gray-300 rounded-lg cursor-pointer focus:outline-none"
+                  accept=".xlsx,.xls,.csv,.zip"
+                  multiple
+                />
+                <div class="flex items-center gap-2">
+                  <button
+                    id="daily-process-btn"
+                    class="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
+                  >
+                    Process Daily Files
+                  </button>
+                  <span class="text-[10px] text-gray-400">
+                    *ยังไม่เขียน logic – ใช้ handler เรียกโค้ด V05 เดิมได้
+                  </span>
+                </div>
+              </div>
+
+              <div
+                id="daily-log"
+                class="log-area mt-3 border border-gray-200 rounded-md bg-gray-50 p-2"
+              ></div>
+            </section>
+
+            <!-- Weekly -->
+            <section class="border border-gray-200 rounded-lg p-4 space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-800">
+                    2) Weekly Sales KPI
+                  </h3>
+                  <p class="text-xs text-gray-500">
+                    ใช้โครงเดียวกับ Daily แต่แยก handler
+                  </p>
+                </div>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">
+                  Import
+                </span>
+              </div>
+
+              <div class="space-y-2">
+                <input
+                  id="weekly-file-input"
+                  type="file"
+                  class="block w-full text-xs text-gray-700 border border-gray-300 rounded-lg cursor-pointer focus:outline-none"
+                  accept=".xlsx,.xls,.csv,.zip"
+                  multiple
+                />
+                <div class="flex items-center gap-2">
+                  <button
+                    id="weekly-process-btn"
+                    class="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Process Weekly Files
+                  </button>
+                  <span class="text-[10px] text-gray-400">
+                    *TODO: เรียกโค้ด V05 เดิมสำหรับ Weekly
+                  </span>
+                </div>
+              </div>
+
+              <div
+                id="weekly-log"
+                class="log-area mt-3 border border-gray-200 rounded-md bg-gray-50 p-2"
+              ></div>
+            </section>
+          </div>
+
+          <!-- Row: Store Recap -->
+          <section class="border border-gray-200 rounded-lg p-4 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <h3 class="text-sm font-semibold text-gray-800">
+                  3) Store Recap / Movement
+                </h3>
+                <p class="text-xs text-gray-500">
+                  สำหรับโค้ดรวม movement / recap / mapping (จาก V05 เดิม)
+                </p>
+              </div>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700">
+                Import
+              </span>
+            </div>
+
+            <div class="grid md:grid-cols-[2fr,1fr] gap-4 items-start">
+              <div class="space-y-2">
+                <input
+                  id="recap-file-input"
+                  type="file"
+                  class="block w-full text-xs text-gray-700 border border-gray-300 rounded-lg cursor-pointer focus:outline-none"
+                  accept=".xlsx,.xls,.csv,.zip"
+                  multiple
+                />
+                <div class="flex items-center gap-2">
+                  <button
+                    id="recap-process-btn"
+                    class="px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    Process Recap Files
+                  </button>
+                  <span class="text-[10px] text-gray-400">
+                    *TODO: เรียกโค้ด Recap / Mapping จาก V05
+                  </span>
+                </div>
+              </div>
+
+              <div class="space-y-1 text-[11px] text-gray-500">
+                <div class="font-semibold text-gray-700 mb-1">หมายเหตุ</div>
+                <ul class="list-disc pl-4 space-y-1">
+                  <li>ถ้า V05 เดิมมีฟังก์ชันอ่านไฟล์ / parse header ให้ย้ายมาวางใน handler: <span class="font-mono">processRecapFiles()</span></li>
+                  <li>ถ้ามีการยิงไป Google Apps Script / Cloud Function ให้เก็บ endpoint ไว้ใน Config Tab</li>
+                </ul>
+              </div>
+            </div>
+
+            <div
+              id="recap-log"
+              class="log-area mt-3 border border-gray-200 rounded-md bg-gray-50 p-2"
+            ></div>
+          </section>
+        </div>
+      `;
+    }
+
+    // ---------- Report Tab ----------
+    function renderReportTab() {
+      return `
+        <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8 space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 class="text-2xl font-bold text-gray-800 mb-1">Report Data</h2>
+              <p class="text-sm text-gray-500">
+                สำหรับหน้าปฏิทิน Daily / Weekly KPI และ Summary Dashboard (โครงเปล่า)
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <input
+                id="report-date-from"
+                type="date"
+                class="border border-gray-300 rounded-md px-2 py-1"
+              />
+              <input
+                id="report-date-to"
+                type="date"
+                class="border border-gray-300 rounded-md px-2 py-1"
+              />
+              <button
+                id="btn-refresh-report"
+                class="px-3 py-1.5 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Placeholder: summary cards -->
+          <div class="grid sm:grid-cols-3 gap-4 text-center text-xs">
+            <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+              <div class="text-[11px] text-gray-500 mb-1">Total Sales</div>
+              <div id="report-total-sales" class="text-lg font-bold text-gray-800">-</div>
+            </div>
+            <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+              <div class="text-[11px] text-gray-500 mb-1">Tx Count</div>
+              <div id="report-tx" class="text-lg font-bold text-gray-800">-</div>
+            </div>
+            <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+              <div class="text-[11px] text-gray-500 mb-1">Avg Basket</div>
+              <div id="report-basket" class="text-lg font-bold text-gray-800">-</div>
+            </div>
+          </div>
+
+          <!-- Placeholder: table -->
+          <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <table class="min-w-full text-xs">
+              <thead class="bg-gray-100 text-gray-700">
+                <tr>
+                  <th class="px-3 py-2 text-left font-semibold">Date</th>
+                  <th class="px-3 py-2 text-right font-semibold">Sales</th>
+                  <th class="px-3 py-2 text-right font-semibold">Tx</th>
+                  <th class="px-3 py-2 text-right font-semibold">Basket</th>
+                </tr>
+              </thead>
+              <tbody id="report-table-body" class="divide-y divide-gray-100">
+                <!-- TODO: เติมจาก Firestore / API ตาม logic V05 -->
+              </tbody>
+            </table>
+          </div>
+
+          <p class="text-[11px] text-gray-400">
+            *ในอนาคต: ดึงข้อมูลจาก Google Sheets / Firestore ตามแบบที่ V05 เดิมใช้ แล้ว map มา render ตารางนี้
+          </p>
+        </div>
+      `;
+    }
+
+    // ---------- Config Tab ----------
+    function renderConfigTab() {
+      return `
+        <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8 space-y-6">
+          <div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">Config</h2>
+            <p class="text-sm text-gray-500">
+              สำหรับ Admin ตั้งค่า Endpoint / Store / ค่า Default ต่าง ๆ
+            </p>
+          </div>
+
+          <section class="border rounded-lg p-4 space-y-3">
+            <h3 class="text-sm font-semibold text-gray-800">System Info</h3>
+            <ul class="text-xs text-gray-600 space-y-1">
+              <li>Project ID: <span class="font-mono">studio-3431359559-3d25c</span></li>
+              <li>Update time: <span id="config-update-time" class="font-mono"></span></li>
+            </ul>
+          </section>
+
+          <section class="border rounded-lg p-4 space-y-3">
+            <h3 class="text-sm font-semibold text-gray-800">
+              External Endpoint (เช่น Apps Script / Cloud Function)
+            </h3>
+            <p class="text-[11px] text-gray-500">
+              เก็บ URL สำหรับยิงจาก Input Tab (Daily / Weekly / Recap) แทนการเขียนทับในโค้ด
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-3 text-xs">
+              <div class="space-y-1">
+                <label class="block text-gray-600 mb-1">Daily Import Endpoint</label>
+                <input
+                  id="cfg-endpoint-daily"
+                  type="url"
+                  class="w-full border border-gray-300 rounded-md px-2 py-1"
+                  placeholder="https://script.google.com/macros/s/XXXX/exec"
+                />
+              </div>
+              <div class="space-y-1">
+                <label class="block text-gray-600 mb-1">Weekly Import Endpoint</label>
+                <input
+                  id="cfg-endpoint-weekly"
+                  type="url"
+                  class="w-full border border-gray-300 rounded-md px-2 py-1"
+                  placeholder="https://script.google.com/macros/s/YYYY/exec"
+                />
+              </div>
+              <div class="space-y-1">
+                <label class="block text-gray-600 mb-1">Recap Import Endpoint</label>
+                <input
+                  id="cfg-endpoint-recap"
+                  type="url"
+                  class="w-full border border-gray-300 rounded-md px-2 py-1"
+                  placeholder="https://script.google.com/macros/s/ZZZZ/exec"
+                />
+              </div>
+              <div class="space-y-1">
+                <label class="block text-gray-600 mb-1">Store Code (เช่น 4340)</label>
+                <input
+                  id="cfg-store-code"
+                  type="text"
+                  class="w-full border border-gray-300 rounded-md px-2 py-1"
+                  placeholder="4340"
+                />
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 mt-2">
+              <button
+                id="btn-save-config"
+                class="px-4 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700"
+              >
+                Save Config (Firestore)
+              </button>
+              <button
+                id="btn-load-config"
+                class="px-4 py-1.5 rounded-lg bg-gray-600 text-white text-xs font-semibold hover:bg-gray-700"
+              >
+                Load Config
+              </button>
+              <span class="text-[10px] text-gray-400">
+                *เก็บที่ collection: <span class="font-mono">kpi_config / global</span>
+              </span>
+            </div>
+          </section>
+        </div>
+      `;
+    }
+
+    // ---------- Handlers: Input Tab (โครงสำหรับวาง V05) ----------
+    async function processDailyFiles(files) {
+      logMessage("daily-log", `เริ่มประมวลผล Daily: ${files.length} ไฟล์`);
+
+      // TODO: วางโค้ดประมวลผลจาก V05 เดิม (อ่าน .zip / .xlsx / mapping header ฯลฯ)
+      // ตัวอย่าง stub:
+      let totalRows = 0;
+      for (const file of files) {
+        logMessage("daily-log", `อ่านไฟล์: ${file.name}`);
+        // อ่านไฟล์เบื้องต้น (ไว้ต่อยอด)
+        // const buffer = await file.arrayBuffer();
+        // ... parse ด้วย SheetJS / logic เดิม ...
+        // totalRows += rowsInThisFile;
+      }
+
+      logImportSummary("daily-log", files.length, totalRows);
+    }
+
+    async function processWeeklyFiles(files) {
+      logMessage("weekly-log", `เริ่มประมวลผล Weekly: ${files.length} ไฟล์`);
+      // TODO: วางโค้ด Weekly V05
+      let totalRows = 0;
+      for (const file of files) {
+        logMessage("weekly-log", `อ่านไฟล์: ${file.name}`);
+        // const buffer = await file.arrayBuffer();
+        // ...
+      }
+      logImportSummary("weekly-log", files.length, totalRows);
+    }
+
+    async function processRecapFiles(files) {
+      logMessage("recap-log", `เริ่มประมวลผล Recap: ${files.length} ไฟล์`);
+      // TODO: วางโค้ด Recap / Movement V05
+      let totalRows = 0;
+      for (const file of files) {
+        logMessage("recap-log", `อ่านไฟล์: ${file.name}`);
+        // const buffer = await file.arrayBuffer();
+        // ...
+      }
+      logImportSummary("recap-log", files.length, totalRows);
+    }
+
+    // ---------- Config Firestore ----------
+    async function saveConfigToFirestore() {
+      if (!db || !state.userRole || state.userRole !== "admin") {
+        Swal.fire("Permission", "เฉพาะ Admin เท่านั้นที่บันทึก Config ได้", "warning");
+        return;
+      }
+
+      const daily = document.getElementById("cfg-endpoint-daily")?.value || "";
+      const weekly = document.getElementById("cfg-endpoint-weekly")?.value || "";
+      const recap = document.getElementById("cfg-endpoint-recap")?.value || "";
+      const storeCode = document.getElementById("cfg-store-code")?.value || "";
+
+      try {
+        await setDoc(doc(db, "kpi_config", "global"), {
+          endpointDaily: daily,
+          endpointWeekly: weekly,
+          endpointRecap: recap,
+          storeCode,
+          updatedAt: serverTimestamp(),
+        });
+        Swal.fire("Saved", "บันทึก Config เรียบร้อยแล้ว", "success");
+      } catch (err) {
+        console.error(err);
+        Swal.fire("Error", err.message, "error");
+      }
+    }
+
+    async function loadConfigFromFirestore() {
+      if (!db) return;
+      try {
+        const snap = await (await import("https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js"))
+          .getDoc(doc(db, "kpi_config", "global"));
+        if (!snap.exists()) {
+          Swal.fire("Info", "ยังไม่มี Config ใน Firestore", "info");
+          return;
+        }
+        const data = snap.data() || {};
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.value = val || "";
+        };
+        setVal("cfg-endpoint-daily", data.endpointDaily);
+        setVal("cfg-endpoint-weekly", data.endpointWeekly);
+        setVal("cfg-endpoint-recap", data.endpointRecap);
+        setVal("cfg-store-code", data.storeCode);
+        Swal.fire("Loaded", "โหลด Config เรียบร้อยแล้ว", "success");
+      } catch (err) {
+        console.error(err);
+        Swal.fire("Error", err.message, "error");
+      }
+    }
+
+    // ---------- Event Listeners ----------
+    function attachEventListeners() {
+      // Tabs
+      document.querySelectorAll(".main-tab").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const tab = e.currentTarget.dataset.tab;
+          if (!tab || e.currentTarget.disabled) return;
+          if (tab !== state.activeTab) setState({ activeTab: tab });
+        });
+      });
+
+      // Logout
+      const btnLogout = document.getElementById("btn-logout");
+      if (btnLogout) {
+        btnLogout.addEventListener("click", async () => {
+          try {
+            await signOut(auth);
+          } catch (err) {
+            console.error(err);
+            Swal.fire("Error", err.message, "error");
+          }
+        });
+      }
+
+      // Login anonymous
+      const btnAnon = document.getElementById("btn-login-anon");
+      if (btnAnon) {
+        btnAnon.addEventListener("click", async () => {
+          try {
+            await signInAnonymously(auth);
+          } catch (err) {
+            console.error(err);
+            Swal.fire("Login Error", err.message, "error");
+          }
+        });
+      }
+
+      // Save role
+      const btnSaveRole = document.getElementById("btn-save-role");
+      if (btnSaveRole) {
+        btnSaveRole.addEventListener("click", () => {
+          const checked = document.querySelector('input[name="role"]:checked');
+          if (!checked) {
+            Swal.fire("กรุณาเลือก Role", "เลือกอย่างน้อย 1 Role ก่อน", "warning");
+            return;
+          }
+          const role = checked.value;
+          setState({ userRole: role, activeTab: "input" });
+          try {
+            localStorage.setItem("kpi_processor_role", JSON.stringify({ role }));
+          } catch (_) {}
+        });
+      }
+
+      // Input Tab: Daily
+      const dailyBtn = document.getElementById("daily-process-btn");
+      if (dailyBtn) {
+        dailyBtn.addEventListener("click", async () => {
+          const input = document.getElementById("daily-file-input");
+          if (!input || !input.files || input.files.length === 0) {
+            Swal.fire("No file", "กรุณาเลือกไฟล์ Daily อย่างน้อย 1 ไฟล์", "warning");
+            return;
+          }
+          await processDailyFiles(Array.from(input.files));
+        });
+      }
+
+      // Input Tab: Weekly
+      const weeklyBtn = document.getElementById("weekly-process-btn");
+      if (weeklyBtn) {
+        weeklyBtn.addEventListener("click", async () => {
+          const input = document.getElementById("weekly-file-input");
+          if (!input || !input.files || input.files.length === 0) {
+            Swal.fire("No file", "กรุณาเลือกไฟล์ Weekly อย่างน้อย 1 ไฟล์", "warning");
+            return;
+          }
+          await processWeeklyFiles(Array.from(input.files));
+        });
+      }
+
+      // Input Tab: Recap
+      const recapBtn = document.getElementById("recap-process-btn");
+      if (recapBtn) {
+        recapBtn.addEventListener("click", async () => {
+          const input = document.getElementById("recap-file-input");
+          if (!input || !input.files || input.files.length === 0) {
+            Swal.fire("No file", "กรุณาเลือกไฟล์ Recap อย่างน้อย 1 ไฟล์", "warning");
+            return;
+          }
+          await processRecapFiles(Array.from(input.files));
+        });
+      }
+
+      // Report Tab: refresh
+      const btnRefreshReport = document.getElementById("btn-refresh-report");
+      if (btnRefreshReport) {
+        btnRefreshReport.addEventListener("click", () => {
+          // TODO: ดึงข้อมูลจาก Firestore / API ตามช่วงวันที่ แล้วเติมลง #report-table-body
+          Swal.fire("Coming soon", "ยังไม่ได้เชื่อมแหล่งข้อมูล Report", "info");
+        });
+      }
+
+      // Config Tab: time + save/load
+      const timeEl = document.getElementById("config-update-time");
+      if (timeEl) {
+        const now = new Date();
+        timeEl.textContent = now.toISOString();
+      }
+
+      const btnSaveConfig = document.getElementById("btn-save-config");
+      if (btnSaveConfig) {
+        btnSaveConfig.addEventListener("click", saveConfigToFirestore);
+      }
+      const btnLoadConfig = document.getElementById("btn-load-config");
+      if (btnLoadConfig) {
+        btnLoadConfig.addEventListener("click", loadConfigFromFirestore);
+      }
+    }
+
+    // ---------- Init Firebase ----------
+    function initFirebase() {
+      try {
+        app = firebaseInitializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+      } catch (err) {
+        console.error("Firebase init error", err);
+        const root = document.getElementById("app-root");
+        if (root) {
+          root.innerHTML = `
+            <div class="min-h-screen flex items-center justify-center">
+              <div class="p-6 rounded-xl bg-red-50 border border-red-200 max-w-md">
+                <h2 class="text-lg font-bold text-red-700 mb-2">
+                  Firebase Initialisation Error
+                </h2>
+                <p class="text-sm text-red-600">${err.message}</p>
+              </div>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      // โหลด role จาก localStorage
+      try {
+        const raw = localStorage.getItem("kpi_processor_role");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.role) {
+            state.userRole = parsed.role;
+          }
+        }
+      } catch (_) {}
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          setState({ isAuthReady: true, user });
+        } else {
+          setState({ isAuthReady: true, user: null });
+        }
+      });
+    }
+
+    // ---------- Bootstrap ----------
+    document.addEventListener("DOMContentLoaded", () => {
+      initFirebase();
+      render();
+    });
+  </script>
+</body>
+</html>
