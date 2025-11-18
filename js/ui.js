@@ -3,6 +3,7 @@
 
 const THEME_KEY = "kpi-theme";
 
+// ---- THEME ----
 function updateThemeIcons(theme) {
   const mobileBtn = document.getElementById("btnThemeToggle");
   const desktopBtn = document.getElementById("btnThemeToggleDesktop");
@@ -39,9 +40,7 @@ export function initTheme() {
   let saved = "light";
   try {
     const stored = localStorage.getItem(THEME_KEY);
-    if (stored === "dark" || stored === "light") {
-      saved = stored;
-    }
+    if (stored === "dark" || stored === "light") saved = stored;
   } catch (e) {
     // ignore
   }
@@ -53,6 +52,7 @@ export function toggleTheme() {
   applyTheme(isDark ? "light" : "dark");
 }
 
+// ---- TABS ----
 export function initTabs() {
   const buttons = document.querySelectorAll(".tab-btn");
   const panels = document.querySelectorAll(".tab-panel");
@@ -78,61 +78,14 @@ export function initTabs() {
     });
   }
 
-  // attach click
-  buttons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const target = btn.getAttribute("data-tab");
-      if (target) setActive(target);
-    });
-  });
-
-  // ซ่อนแท็บ Calendar เดิม (Report = Calendar)
+  // ซ่อน Calendar tab (เราใช้ Reports = Calendar แทน)
   const calendarTabBtn = document.querySelector(
     '.tab-btn[data-tab="tab-calendar"]'
   );
-  if (calendarTabBtn) {
-    calendarTabBtn.classList.add("hidden");
-  }
+  if (calendarTabBtn) calendarTabBtn.classList.add("hidden");
   const calendarPanel = document.getElementById("tab-calendar");
-  if (calendarPanel) {
-    calendarPanel.classList.add("hidden");
-  }
+  if (calendarPanel) calendarPanel.classList.add("hidden");
 
-  // default เข้าแท็บ Input
-  setActive("tab-input");
-}
-
-export function initView() {
-  const loginView = document.getElementById("view-login");
-  const appView = document.getElementById("view-app");
-  if (loginView && appView) {
-    loginView.classList.remove("hidden");
-    appView.classList.add("hidden");
-  }
-}
-
-export function showAppView(displayName) {
-  const loginView = document.getElementById("view-login");
-  const appView = document.getElementById("view-app");
-  if (loginView && appView) {
-    loginView.classList.add("hidden");
-    appView.classList.remove("hidden");
-  }
-  const headerUserDisplay = document.getElementById("headerUserDisplay");
-  if (headerUserDisplay) {
-    headerUserDisplay.textContent = displayName || "...";
-  }
-}
-
-export function showLoginView() {
-  const loginView = document.getElementById("view-login");
-  const appView = document.getElementById("view-app");
-  if (loginView && appView) {
-    loginView.classList.remove("hidden");
-    appView.classList.add("hidden");
-  }
-  const headerUserDisplay = document.getElementById("headerUserDisplay");
-  if (headerUserDisplay) {
-    headerUserDisplay.textContent = "...";
-  }
-}
+  // ผูกคลิกปุ่ม tab
+  buttons.forEach((btn) => {
+    btn.addEventL
