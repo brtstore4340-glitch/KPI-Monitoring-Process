@@ -187,32 +187,23 @@
               <div>
                 <h2 class="text-xl font-bold text-slate-800 dark:text-white">เข้าสู่ระบบ</h2>
                 <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  กรุณาระบุชื่อและบทบาทเพื่อเข้าใช้งานระบบ
+                  กรุณาระบุ Username และ Password เพื่อเข้าใช้งานระบบ
                 </p>
               </div>
 
               <form id="loginForm" class="space-y-5">
                 <div class="space-y-1.5">
-                  <label for="loginName" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Display Name</label>
-                  <input id="loginName" type="text" placeholder="เช่น Somchai / Manager" 
+                  <label for="loginName" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Username</label>
+                  <input id="loginName" type="text" placeholder="เช่น admin, 4340" required
                     class="w-full rounded-lg border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-slate-900 dark:text-white px-4 py-2.5 text-sm focus:border-blue-500 dark:focus:border-sky-500 focus:ring-blue-500 dark:focus:ring-sky-500 shadow-sm" />
                 </div>
-
-                <div class="space-y-1.5">
-                  <label for="loginRole" class="text-sm font-semibold text-slate-700 dark:text-slate-300">Role</label>
-                  <select id="loginRole" 
-                    class="w-full rounded-lg border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-slate-900 dark:text-white px-4 py-2.5 text-sm focus:border-blue-500 dark:focus:border-sky-500 focus:ring-blue-500 dark:focus:ring-sky-500 shadow-sm">
-                    <option value="Normal">Normal (Staff)</option>
-                    <option value="Management">Management</option>
-                    <option value="Admin">Admin</option>
-                  </select>
-                </div>
+                <!-- Role Dropdown Removed -->
 
                 <div class="space-y-1.5">
                   <label for="loginPassword" class="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    KPI Password <span class="text-xs font-normal text-slate-400 dark:text-slate-500">(เฉพาะ Management/Admin)</span>
+                    Password
                   </label>
-                  <input id="loginPassword" type="password" placeholder="••••••••" 
+                  <input id="loginPassword" type="password" placeholder="••••••••" required
                     class="w-full rounded-lg border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-slate-900 dark:text-white px-4 py-2.5 text-sm focus:border-blue-500 dark:focus:border-sky-500 focus:ring-blue-500 dark:focus:ring-sky-500 shadow-sm" />
                 </div>
 
@@ -242,11 +233,11 @@
                 </li>
                 <li class="flex items-start gap-2">
                   <span class="mt-1 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                  <span><b>Management:</b> อัปโหลดข้อมูล และดูรายงานเชิงลึกได้</span>
+                  <span><b>Store Manager:</b> อัปโหลดข้อมูล และดูรายงานเชิงลึกได้</span>
                 </li>
                 <li class="flex items-start gap-2">
                   <span class="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
-                  <span><b>Normal:</b> อัปโหลดข้อมูลประจำวัน และดูรายงานสรุปพื้นฐาน</span>
+                  <span><b>Store:</b> อัปโหลดข้อมูลประจำวัน และดูรายงานสรุปพื้นฐาน</span>
                 </li>
               </ul>
             </div>
