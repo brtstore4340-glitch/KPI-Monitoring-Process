@@ -1,5 +1,5 @@
 // kpi-login-v08.js
-// KPI Data Processor – Code V09 (LoginFirst + Calendar)
+// KPI Data Processor – Code V09 Login
 
 import {
   appState,
@@ -8,7 +8,7 @@ import {
   pushLog
 } from "./kpi-core-v08.js";
 
-import { showAppView, showLoginView } from "./ui.js";
+import { toggleViewToApp, toggleViewToLogin } from "./ui.js";
 
 import {
   doc,
@@ -21,24 +21,9 @@ async function seedUsers() {
   if (!db) return;
 
   const defaultUsers = [
-    {
-      username: "admin",
-      password: "admin230049",
-      role: "Admin",
-      displayName: "Administrator"
-    },
-    {
-      username: "4340",
-      password: "SGM4340**",
-      role: "Store Manager",
-      displayName: "Manager 4340"
-    },
-    {
-      username: "4340s",
-      password: "4340s",
-      role: "Store",
-      displayName: "Staff 4340"
-    }
+    { username: "admin", password: "admin230049", role: "Admin", displayName: "Administrator" },
+    { username: "4340", password: "SGM4340**", role: "Store Manager", displayName: "Manager 4340" },
+    { username: "4340s", password: "4340s", role: "Store", displayName: "Staff 4340" }
   ];
 
   try {
@@ -50,16 +35,9 @@ async function seedUsers() {
         pushLog("[SEED] Created user: " + user.username);
       }
     }
-  } catch (error) {
-    pushLog("[SEED ERROR] " + (error.message || error.toString()));
-  }
-}
-
-function showAlert(title, text, icon) {
-  if (window.Swal && typeof window.Swal.fire === "function") {
-    window.Swal.fire(title, text, icon || "info");
-  } else {
-    alert(title + (text ? "\n" + text : ""));
+  } catch (err) {
+    const msg = err && (err.message || err.toString());
+    pushLog("[SEED ERROR] " + msg);
   }
 }
 
@@ -67,25 +45,20 @@ function showAlert(title, text, icon) {
 async function handleLoginSubmit(event) {
   event.preventDefault();
 
-  const form = event.target;
   const nameInput = document.getElementById("loginName");
   const passInput = document.getElementById("loginPassword");
-  const btnSubmit = form.querySelector("button[type='submit']");
+  const btnSubmit = event.target.querySelector("button[type='submit']");
 
   const username = (nameInput?.value || "").trim();
   const password = (passInput?.value || "").trim();
 
   if (!username || !password) {
-    showAlert("Login Error", "กรุณากรอก Username และ Password", "warning");
+    alert("กรุณากรอก Username และ Password");
     return;
   }
 
   if (!appState.firebaseReady || !db) {
-    showAlert(
-      "System Error",
-      "ยังไม่ได้เชื่อมต่อ Database กรุณารอสักครู่",
-      "error"
-    );
+    alert("ยังไม่ได้เชื่อมต่อ Database กรุณารอสักครู่");
     return;
   }
 
@@ -103,31 +76,30 @@ async function handleLoginSubmit(event) {
     }
 
     const userData = userSnap.data();
-
     if (userData.password !== password) {
       throw new Error("รหัสผ่านไม่ถูกต้อง");
     }
 
-    // Login Success
     appState.username = userData.username;
     appState.displayName = userData.displayName || userData.username;
-    appState.role = userData.role || "Store";
+    appState.role = userData.role || null;
 
     pushLog(
       "[LOGIN] Success: " +
         appState.username +
         " (" +
-        appState.role +
+        (appState.role || "-") +
         ")"
     );
 
     if (passInput) passInput.value = "";
 
-    showAppView(appState.displayName);
-  } catch (error) {
-    const msg = error && (error.message || error.toString());
+    // เปลี่ยนจาก Login View -> App View
+    toggleViewToApp(appState.displayName);
+  } catch (err) {
+    const msg = err && (err.message || err.toString());
     pushLog("[LOGIN FAILED] " + msg);
-    showAlert("เข้าสู่ระบบไม่สำเร็จ", msg, "error");
+    alert("เข้าสู่ระบบไม่สำเร็จ: " + msg);
   } finally {
     if (btnSubmit) {
       btnSubmit.innerHTML = "เข้าสู่ระบบ";
@@ -136,6 +108,7 @@ async function handleLoginSubmit(event) {
   }
 }
 
+// --- LOGOUT HANDLER ---
 function handleLogout() {
   appState.displayName = null;
   appState.username = null;
@@ -147,21 +120,20 @@ function handleLogout() {
   if (passInput) passInput.value = "";
 
   pushLog("[LOGIN] Logged out");
-  showLoginView();
+  toggleViewToLogin();
 }
 
-// --- INIT ---
+// --- BOOTSTRAP ---
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("loginForm");
   if (loginForm) {
     loginForm.addEventListener("submit", handleLoginSubmit);
   }
-
   const btnLogout = document.getElementById("btnLogout");
   if (btnLogout) {
     btnLogout.addEventListener("click", handleLogout);
   }
 
-  // seed users หลัง Firebase init ไปแล้วสักพัก
-  setTimeout(seedUsers, 2000);
+  // seed users หลัง Firebase init ไปสักครู่
+  setTimeout(seedUsers, 3000);
 });

@@ -1,9 +1,9 @@
 // ui.js
-// KPI Data Processor – Code V09 (LoginFirst + Calendar)
+// KPI Data Processor – Code V09 (LoginFirst UI helpers)
 
 const THEME_KEY = "kpi-theme";
 
-// ---- THEME ----
+// ----- THEME INTERNAL -----
 function updateThemeIcons(theme) {
   const mobileBtn = document.getElementById("btnThemeToggle");
   const desktopBtn = document.getElementById("btnThemeToggleDesktop");
@@ -36,6 +36,7 @@ function applyTheme(theme) {
   updateThemeIcons(theme);
 }
 
+// ----- EXPORTED: THEME -----
 export function initTheme() {
   let saved = "light";
   try {
@@ -52,7 +53,7 @@ export function toggleTheme() {
   applyTheme(isDark ? "light" : "dark");
 }
 
-// ---- TABS ----
+// ----- EXPORTED: TABS (Inside view-app) -----
 export function initTabs() {
   const buttons = document.querySelectorAll(".tab-btn");
   const panels = document.querySelectorAll(".tab-panel");
@@ -78,14 +79,51 @@ export function initTabs() {
     });
   }
 
-  // ซ่อน Calendar tab (เราใช้ Reports = Calendar แทน)
-  const calendarTabBtn = document.querySelector(
-    '.tab-btn[data-tab="tab-calendar"]'
-  );
-  if (calendarTabBtn) calendarTabBtn.classList.add("hidden");
-  const calendarPanel = document.getElementById("tab-calendar");
-  if (calendarPanel) calendarPanel.classList.add("hidden");
+  // เริ่มต้นให้ Tab Input Data ทำงานก่อน
+  setActive("tab-input");
 
-  // ผูกคลิกปุ่ม tab
   buttons.forEach((btn) => {
-    btn.addEventL
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-tab");
+      if (target) setActive(target);
+    });
+  });
+}
+
+// ----- EXPORTED: VIEW SWITCH (Login <-> App) -----
+export function initView() {
+  const loginView = document.getElementById("view-login");
+  const appView = document.getElementById("view-app");
+  if (loginView && appView) {
+    loginView.classList.remove("hidden");
+    appView.classList.add("hidden");
+  }
+}
+
+// ใช้ตอน Login สำเร็จ
+export function toggleViewToApp(displayName) {
+  const loginView = document.getElementById("view-login");
+  const appView = document.getElementById("view-app");
+  if (loginView && appView) {
+    loginView.classList.add("hidden");
+    appView.classList.remove("hidden");
+  }
+  const headerUserDisplay = document.getElementById("headerUserDisplay");
+  if (headerUserDisplay) {
+    headerUserDisplay.textContent = displayName || "...";
+  }
+}
+
+// ใช้ตอน Logout
+export function toggleViewToLogin() {
+  const loginView = document.getElementById("view-login");
+  const appView = document.getElementById("view-app");
+  if (loginView && appView) {
+    loginView.classList.remove("hidden");
+    appView.classList.add("hidden");
+  }
+  const headerUserDisplay = document.getElementById("headerUserDisplay");
+  if (headerUserDisplay) {
+    headerUserDisplay.textContent = "...";
+  }
+}

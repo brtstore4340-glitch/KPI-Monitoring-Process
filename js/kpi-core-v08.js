@@ -19,7 +19,7 @@ import { getStorage } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-s
 
 // NOTE: XLSX & JSZip are loaded globally from CDN in index.html
 //   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-//   <script src="="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+//   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 import { initTheme, toggleTheme, initTabs, initView } from "./ui.js";
 
@@ -159,19 +159,19 @@ function detectFileMeta(fileName, forcedGroup) {
   let storeId = null;
   let dateKey = null;
 
-  // 1) Daily KPI
+  // Daily KPI
   if (lower.includes("daily sales kpi")) {
     fileType = "daily_kpi";
     if (!group || group === "unknown") group = "daily";
   }
 
-  // 2) Weekly KPI
+  // Weekly KPI
   if (lower.includes("weekly sales kpi")) {
     fileType = "weekly_kpi";
     group = "weekly";
   }
 
-  // 3) salebydeptUK4340
+  // salebydeptUK4340
   if (lower.startsWith("salebydeptuk")) {
     fileType = "salebydeptUK";
     if (!group || group === "unknown") group = "daily";
@@ -179,7 +179,7 @@ function detectFileMeta(fileName, forcedGroup) {
     if (m) storeId = m[1];
   }
 
-  // 4) soldmovement43401511
+  // soldmovement43401511
   if (lower.startsWith("soldmovement")) {
     fileType = "soldmovement";
     if (!group || group === "unknown") group = "daily";
@@ -190,7 +190,7 @@ function detectFileMeta(fileName, forcedGroup) {
     }
   }
 
-  // 5) storerecap4340
+  // storerecap4340
   if (lower.startsWith("storerecap")) {
     fileType = "storerecap";
     group = "recap";
@@ -198,18 +198,17 @@ function detectFileMeta(fileName, forcedGroup) {
     if (m) storeId = m[1];
   }
 
-  // 6) หา storeId แบบทั่วไป (ตัวเลข 4 หลักแรก)
+  // หา storeId แบบทั่วไป (4 digits)
   if (!storeId) {
     const mStore = lower.match(/(\d{4})/);
     if (mStore) storeId = mStore[1];
   }
 
-  // 7) หา dateKey รูปแบบ YYYYMMDD ในชื่อไฟล์ (เช่น 20251102)
+  // หา dateKey YYYYMMDD
   const mDate = lower.match(/(20\d{6})/);
   if (mDate) {
     dateKey = mDate[1];
   }
-
   if (!dateKey) {
     dateKey = getTodayYmd();
   }
@@ -316,7 +315,6 @@ async function persistToFirestore(meta, rows, sheetName) {
 }
 
 // --- CORE PROCESSORS (Daily / Weekly / Recap) ---
-
 async function processWorkbookBuffer(fileName, arrayBuffer, forcedGroup) {
   if (!ensureLibsReady()) return;
   if (!ensureFirebaseReady()) return;
@@ -336,7 +334,7 @@ async function processWorkbookBuffer(fileName, arrayBuffer, forcedGroup) {
   await persistToFirestore(meta, rows, sheetName);
 }
 
-// --- DAILY PACK (zip หรือไฟล์เดี่ยว) ---
+// --- DAILY PACK ---
 export async function processDailyPack(file) {
   if (!file) {
     pushLog("[DAILY] No file selected");
@@ -377,7 +375,7 @@ export async function processDailyPack(file) {
   }
 }
 
-// --- WEEKLY FILE (.xlsx หรือ zip) ---
+// --- WEEKLY FILE ---
 export async function processWeeklyFile(file) {
   if (!file) {
     pushLog("[WEEKLY] No file selected");
@@ -418,7 +416,7 @@ export async function processWeeklyFile(file) {
   }
 }
 
-// --- RECAP FILE (.xlsx หรือ zip) ---
+// --- RECAP FILE ---
 export async function processRecapFile(file) {
   if (!file) {
     pushLog("[RECAP] No file selected");
@@ -459,7 +457,7 @@ export async function processRecapFile(file) {
   }
 }
 
-// --- OPTIONAL: setActiveTab (เผื่อไฟล์อื่น import จาก core) ---
+// --- OPTIONAL: setActiveTab (ให้ไฟล์อื่นเรียกได้) ---
 export function setActiveTab(tabId) {
   const panels = document.querySelectorAll(".tab-panel");
   const buttons = document.querySelectorAll(".tab-btn");
@@ -525,27 +523,3 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 1) เริ่มที่หน้า Login ก่อน
   initView();
-
-  // 2) Theme
-  initTheme();
-  const mobileToggle = document.getElementById("btnThemeToggle");
-  if (mobileToggle) mobileToggle.addEventListener("click", toggleTheme);
-  const desktopToggle = document.getElementById("btnThemeToggleDesktop");
-  if (desktopToggle) desktopToggle.addEventListener("click", toggleTheme);
-
-  // 3) Tabs ใน view-app
-  initTabs();
-
-  // 4) ปุ่ม Clear Log
-  const btnClearLog = document.getElementById("btnClearLog");
-  if (btnClearLog) {
-    btnClearLog.addEventListener("click", () => {
-      const logEl = document.getElementById("consoleLog");
-      if (logEl) logEl.textContent = "";
-    });
-  }
-
-  // 5) Firebase
-  updateFirebaseStatus("initializing…", "text-amber-400");
-  initFirebase();
-});
