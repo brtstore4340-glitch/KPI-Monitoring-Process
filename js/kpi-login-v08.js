@@ -1,14 +1,18 @@
-// kpi-login-v08.js
-// KPI Data Processor – Code V09 Login
+// kpi-login.js
+// KPI Data Processor – Code V10 (Login & User Seed)
 
 import {
   appState,
   db,
   USERS_COLLECTION_ROOT,
   pushLog
-} from "./kpi-core-v08.js";
+} from "./kpi-core.js";
 
-import { toggleViewToApp, toggleViewToLogin } from "./ui.js";
+import {
+  toggleViewToApp,
+  toggleViewToLogin,
+  updateHeaderUserDisplay
+} from "./ui.js";
 
 import {
   doc,
@@ -17,13 +21,16 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
 // --- SEED DEFAULT USERS ---
-async function seedUsers() {
-  if (!db) return;
+async function seedUsersOnce() {
+  if (!db) {
+    pushLog("[SEED] Firestore not ready, skip seeding");
+    return;
+  }
 
   const defaultUsers = [
-    { username: "admin", password: "admin230049", role: "Admin", displayName: "Administrator" },
-    { username: "4340", password: "SGM4340**", role: "Store Manager", displayName: "Manager 4340" },
-    { username: "4340s", password: "4340s", role: "Store", displayName: "Staff 4340" }
+    { username: "admin", password: "admin230049", role: "Admin",          displayName: "Administrator" },
+    { username: "4340",  password: "SGM4340**",   role: "Store Manager",  displayName: "Manager 4340" },
+    { username: "4340s", password: "4340s",       role: "Store",          displayName: "Staff 4340" }
   ];
 
   try {
@@ -36,9 +43,21 @@ async function seedUsers() {
       }
     }
   } catch (err) {
-    const msg = err && (err.message || err.toString());
-    pushLog("[SEED ERROR] " + msg);
+    console.error(err);
+    pushLog("[SEED ERROR] " + (err.message || err.toString()));
   }
+}
+
+function seedUsersWithRetry(retry = 0) {
+  if (!db || !appState.firebaseReady) {
+    if (retry < 10) {
+      setTimeout(() => seedUsersWithRetry(retry + 1), 1000);
+    } else {
+      pushLog("[SEED] Stop retrying user seed (no Firestore)");
+    }
+    return;
+  }
+  seedUsersOnce();
 }
 
 // --- LOGIN HANDLER ---
@@ -53,12 +72,12 @@ async function handleLoginSubmit(event) {
   const password = (passInput?.value || "").trim();
 
   if (!username || !password) {
-    alert("กรุณากรอก Username และ Password");
+    Swal.fire("Login Error", "กรุณากรอก Username และ Password", "warning");
     return;
   }
 
   if (!appState.firebaseReady || !db) {
-    alert("ยังไม่ได้เชื่อมต่อ Database กรุณารอสักครู่");
+    Swal.fire("System Error", "ยังไม่ได้เชื่อมต่อ Database กรุณารอสักครู่", "error");
     return;
   }
 
@@ -76,30 +95,27 @@ async function handleLoginSubmit(event) {
     }
 
     const userData = userSnap.data();
+
     if (userData.password !== password) {
       throw new Error("รหัสผ่านไม่ถูกต้อง");
     }
 
+    // Login Success
     appState.username = userData.username;
     appState.displayName = userData.displayName || userData.username;
     appState.role = userData.role || null;
 
-    pushLog(
-      "[LOGIN] Success: " +
-        appState.username +
-        " (" +
-        (appState.role || "-") +
-        ")"
-    );
+    pushLog(`[LOGIN] Success: ${appState.username} (${appState.role})`);
 
     if (passInput) passInput.value = "";
 
-    // เปลี่ยนจาก Login View -> App View
-    toggleViewToApp(appState.displayName);
-  } catch (err) {
-    const msg = err && (err.message || err.toString());
-    pushLog("[LOGIN FAILED] " + msg);
-    alert("เข้าสู่ระบบไม่สำเร็จ: " + msg);
+    // Update header & switch view
+    updateHeaderUserDisplay(appState.displayName, appState.role, appState.username);
+    toggleViewToApp();
+  } catch (error) {
+    console.error(error);
+    pushLog("[LOGIN FAILED] " + (error.message || error.toString()));
+    Swal.fire("เข้าสู่ระบบไม่สำเร็จ", error.message || "Unknown error", "error");
   } finally {
     if (btnSubmit) {
       btnSubmit.innerHTML = "เข้าสู่ระบบ";
@@ -108,7 +124,6 @@ async function handleLoginSubmit(event) {
   }
 }
 
-// --- LOGOUT HANDLER ---
 function handleLogout() {
   appState.displayName = null;
   appState.username = null;
@@ -120,20 +135,22 @@ function handleLogout() {
   if (passInput) passInput.value = "";
 
   pushLog("[LOGIN] Logged out");
+
   toggleViewToLogin();
 }
 
-// --- BOOTSTRAP ---
+// --- INIT LISTENERS ---
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("loginForm");
   if (loginForm) {
     loginForm.addEventListener("submit", handleLoginSubmit);
   }
+
   const btnLogout = document.getElementById("btnLogout");
   if (btnLogout) {
     btnLogout.addEventListener("click", handleLogout);
   }
 
-  // seed users หลัง Firebase init ไปสักครู่
-  setTimeout(seedUsers, 3000);
+  // เริ่ม seed default users (รอ Firebase พร้อมก่อน)
+  seedUsersWithRetry(0);
 });

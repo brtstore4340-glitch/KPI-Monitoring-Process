@@ -1,129 +1,128 @@
 // ui.js
-// KPI Data Processor – Code V09 (LoginFirst UI helpers)
+// KPI Data Processor – Code V10 (UI & View Control)
 
-const THEME_KEY = "kpi-theme";
-
-// ----- THEME INTERNAL -----
-function updateThemeIcons(theme) {
-  const mobileBtn = document.getElementById("btnThemeToggle");
-  const desktopBtn = document.getElementById("btnThemeToggleDesktop");
-  const icon = theme === "dark" ? "🌙" : "☀️";
-
-  if (mobileBtn) {
-    const span = mobileBtn.querySelector("span");
-    if (span) span.textContent = icon;
-  }
-  if (desktopBtn) {
-    const span = desktopBtn.querySelector("span");
-    if (span) span.textContent = icon;
-  }
-}
-
-function applyTheme(theme) {
-  const root = document.documentElement;
-  if (theme === "dark") {
-    root.classList.add("dark");
-    root.classList.remove("light");
-  } else {
-    root.classList.remove("dark");
-    root.classList.add("light");
-  }
-  try {
-    localStorage.setItem(THEME_KEY, theme);
-  } catch (e) {
-    // ignore
-  }
-  updateThemeIcons(theme);
-}
-
-// ----- EXPORTED: THEME -----
-export function initTheme() {
-  let saved = "light";
-  try {
-    const stored = localStorage.getItem(THEME_KEY);
-    if (stored === "dark" || stored === "light") saved = stored;
-  } catch (e) {
-    // ignore
-  }
-  applyTheme(saved);
-}
-
-export function toggleTheme() {
-  const isDark = document.documentElement.classList.contains("dark");
-  applyTheme(isDark ? "light" : "dark");
-}
-
-// ----- EXPORTED: TABS (Inside view-app) -----
-export function initTabs() {
-  const buttons = document.querySelectorAll(".tab-btn");
-  const panels = document.querySelectorAll(".tab-panel");
-  if (!buttons.length || !panels.length) return;
-
-  function setActive(tabId) {
-    panels.forEach((panel) => {
-      if (panel.id === tabId) {
-        panel.classList.remove("hidden");
-      } else {
-        panel.classList.add("hidden");
-      }
-    });
-    buttons.forEach((btn) => {
-      const target = btn.getAttribute("data-tab");
-      if (target === tabId) {
-        btn.classList.add("tab-btn-active");
-        btn.classList.remove("tab-btn-inactive");
-      } else {
-        btn.classList.add("tab-btn-inactive");
-        btn.classList.remove("tab-btn-active");
-      }
-    });
-  }
-
-  // เริ่มต้นให้ Tab Input Data ทำงานก่อน
-  setActive("tab-input");
-
-  buttons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const target = btn.getAttribute("data-tab");
-      if (target) setActive(target);
-    });
-  });
-}
-
-// ----- EXPORTED: VIEW SWITCH (Login <-> App) -----
+/**
+ * Initial view: show Login, hide App
+ */
 export function initView() {
   const loginView = document.getElementById("view-login");
   const appView = document.getElementById("view-app");
-  if (loginView && appView) {
-    loginView.classList.remove("hidden");
-    appView.classList.add("hidden");
-  }
+  if (loginView) loginView.classList.remove("hidden");
+  if (appView) appView.classList.add("hidden");
 }
 
-// ใช้ตอน Login สำเร็จ
-export function toggleViewToApp(displayName) {
+/**
+ * Switch to App view after login
+ */
+export function toggleViewToApp() {
   const loginView = document.getElementById("view-login");
   const appView = document.getElementById("view-app");
-  if (loginView && appView) {
-    loginView.classList.add("hidden");
-    appView.classList.remove("hidden");
-  }
-  const headerUserDisplay = document.getElementById("headerUserDisplay");
-  if (headerUserDisplay) {
-    headerUserDisplay.textContent = displayName || "...";
-  }
+  if (loginView) loginView.classList.add("hidden");
+  if (appView) appView.classList.remove("hidden");
 }
 
-// ใช้ตอน Logout
+/**
+ * Switch back to Login view after logout
+ */
 export function toggleViewToLogin() {
   const loginView = document.getElementById("view-login");
   const appView = document.getElementById("view-app");
-  if (loginView && appView) {
-    loginView.classList.remove("hidden");
-    appView.classList.add("hidden");
+  if (loginView) loginView.classList.remove("hidden");
+  if (appView) appView.classList.add("hidden");
+
+  // Reset header display
+  updateHeaderUserDisplay("...", null, null);
+}
+
+/**
+ * Update header user display text (top-right)
+ */
+export function updateHeaderUserDisplay(displayName, role, username) {
+  const el = document.getElementById("headerUserDisplay");
+  if (!el) return;
+  const name = displayName || username || "-";
+  el.textContent = name;
+}
+
+/**
+ * Theme helpers
+ */
+function applyTheme(theme) {
+  const root = document.documentElement;
+  const isDark = theme === "dark";
+  if (isDark) {
+    root.classList.add("dark");
+  } else {
+    root.classList.remove("dark");
   }
-  const headerUserDisplay = document.getElementById("headerUserDisplay");
-  if (headerUserDisplay) {
-    headerUserDisplay.textContent = "...";
+
+  const mobileToggle = document.getElementById("btnThemeToggle");
+  const desktopToggle = document.getElementById("btnThemeToggleDesktop");
+  const icon = isDark ? "☀️" : "🌙";
+  if (mobileToggle) mobileToggle.innerText = icon;
+  if (desktopToggle) desktopToggle.innerText = icon;
+}
+
+export function initTheme() {
+  let theme = localStorage.getItem("kpi-theme");
+  if (!theme) {
+    const prefersDark = window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+    theme = prefersDark ? "dark" : "light";
   }
+  applyTheme(theme);
+}
+
+export function toggleTheme() {
+  const root = document.documentElement;
+  const isDark = root.classList.contains("dark");
+  const nextTheme = isDark ? "light" : "dark";
+  localStorage.setItem("kpi-theme", nextTheme);
+  applyTheme(nextTheme);
+}
+
+/**
+ * Tabs inside view-app
+ */
+export function initTabs() {
+  const buttons = document.querySelectorAll(".tab-btn");
+  if (!buttons || !buttons.length) return;
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetId = btn.getAttribute("data-tab");
+      if (!targetId) return;
+      setActiveTab(targetId);
+    });
+  });
+
+  // default: first tab active
+  const firstActive = document.querySelector(".tab-btn-active");
+  if (!firstActive && buttons[0]) {
+    const t = buttons[0].getAttribute("data-tab");
+    if (t) setActiveTab(t);
+  }
+}
+
+/**
+ * Show active tab panel, hide others
+ */
+export function setActiveTab(tabId) {
+  const panels = document.querySelectorAll(".tab-panel");
+  const buttons = document.querySelectorAll(".tab-btn");
+
+  panels.forEach((panel) => {
+    panel.classList.toggle("hidden", panel.id !== tabId);
+  });
+
+  buttons.forEach((btn) => {
+    const target = btn.getAttribute("data-tab");
+    if (target === tabId) {
+      btn.classList.remove("tab-btn-inactive");
+      btn.classList.add("tab-btn-active");
+    } else {
+      btn.classList.add("tab-btn-inactive");
+      btn.classList.remove("tab-btn-active");
+    }
+  });
 }
