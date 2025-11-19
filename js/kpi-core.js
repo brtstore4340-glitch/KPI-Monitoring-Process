@@ -180,6 +180,16 @@ export function initFirebase() {
   }
 }
 
+// ล้าง query string ออกจาก URL ถ้ามีอะไรติดมา
+if (window.location.search) {
+  try {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+
 // --- BOOTSTRAP ---
 document.addEventListener("DOMContentLoaded", () => {
   pushLog("KPI Data Processor loaded – " + CODE_VERSION);
