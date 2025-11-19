@@ -427,7 +427,7 @@
       color: #6b7280;
     }
 
-    /* ---------- APP SCROLLBAR / PANELS (ของส่วน App เดิม) ---------- */
+    /* ---------- APP SCROLLBAR / PANELS ---------- */
 
     .kpi-scroll { scrollbar-width: thin; }
     .kpi-scroll::-webkit-scrollbar { width: 6px; }
@@ -551,8 +551,8 @@
     </main>
   </div>
 
-  <!-- 📊 APP VIEW เดิม (ไม่แก้) -->
-  <div id="view-app" class="w-full min-h-screen flex flex-col items-center hidden">
+  <!-- 📊 APP VIEW -->
+  <div id="view-app" class="w-full min-h-screen flex flex-col.items-center hidden">
     <!-- HEADER -->
     <header class="w-full max-w-5xl px-6 pt-6 pb-4">
       <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -577,7 +577,7 @@
         <div class="flex items-center gap-3">
           <button
             id="btnThemeToggleDesktop"
-            class="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-yellow-400 shadow-sm border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+            class="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-white.dark:bg-slate-800 text-slate-600 dark:text-yellow-400 shadow-sm border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
           >
             🌓
           </button>
@@ -592,11 +592,12 @@
       </div>
     </header>
 
-    <!-- MAIN CONTENT (เหมือนเดิม) -->
+    <!-- MAIN CONTENT -->
     <main class="w-full max-w-5xl px-4 pb-12 flex-1">
       <div class="bg-white dark:bg-slate-900/80 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden transition-colors duration-300">
 
-        <div class="border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 pt-4.flex items-end gap-1">
+        <!-- TAB BAR -->
+        <div class="border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 pt-4 flex.items-end gap-1">
           <button class="tab-btn px-5 py-3 text-sm font-semibold tab-btn-active" data-tab="tab-input">
             Input Data
           </button>
@@ -611,60 +612,106 @@
           </button>
         </div>
 
-        <!-- TAB PANELS (ย่อไว้; โครงเหมือน V10 เดิมของพี่) -->
-
- <section id="tab-input" class="tab-panel px-6 py-8 md:px-10 md:py-10">
+        <!-- ---------- TAB INPUT (แก้ใหม่ตามที่พี่ขอ) ---------- -->
+        <section id="tab-input" class="tab-panel px-6 py-8 md:px-10 md:py-10">
           <div class="flex flex-col gap-8">
-            <div class="flex items-baseline justify-between border-b border-gray-100 dark:border-slate-800 pb-4">
-              <h2 class="text-xl font-bold text-slate-800 dark:text-white">อัปโหลดไฟล์ข้อมูล</h2>
-              <span class="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 rounded-md">
-                รองรับ .xlsx, .zip
+
+            <!-- DAILY DATA BLOCK -->
+            <div class="border-b border-gray-100 dark:border-slate-800 pb-4 flex.items-center justify-between">
+              <div>
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white">Daily Data</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  เลือกประเภท Daily Report แล้วอัปโหลดไฟล์ (.xls, .xlsx, .zip)
+                </p>
+              </div>
+              <span class="text-xs font-medium px-2 py-1 bg-gray-100.dark:bg-slate-800 text-gray-600 dark:text-slate-400 rounded-md">
+                รองรับ .xls, .xlsx, .zip
               </span>
             </div>
 
             <div class="grid gap-6 lg:grid-cols-2">
-              <!-- Daily -->
+              <!-- DAILY DATA CARD -->
               <div
                 class="group bg-white dark:bg-slate-800/50 rounded-xl border border-gray-200 dark:border-slate-700 p-5 hover:border-blue-300 dark:hover:border-sky-500 hover:shadow-md transition-all">
                 <div class="flex justify-between items-start mb-4">
                   <div>
                     <h3
                       class="text-base font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-sky-400 transition-colors">
-                      Daily Data
+                      Daily Data Upload
                     </h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Daily KPI / SoldMovement / SaleByDept</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Daily KPI / Sold Movement / Sale By Dept / Store Recap
+                    </p>
                   </div>
                   <div
-                    class="w-8 h-8 rounded-full bg-blue-50 dark:bg-sky-900/30 flex items-center justify-center text-blue-600 dark:text-sky-400">
+                    class="w-8 h-8 rounded-full bg-blue-50 dark:bg-sky-900/30 flex.items-center justify-center text-blue-600 dark:text-sky-400">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                     </svg>
                   </div>
                 </div>
+
+                <!-- DAILY TYPE SELECT -->
                 <div class="space-y-3">
+                  <div>
+                    <label for="dailyReportType" class="block text-xs font-semibold text-slate-700.dark:text-slate-300 mb-1">
+                      เลือกประเภท Daily Report
+                    </label>
+                    <select
+                      id="dailyReportType"
+                      class="w-full rounded-lg border border-gray-300.dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-700.dark:text-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500.dark:focus:ring-sky-500"
+                    >
+                      <option value="daily_kpi">Daily KPI</option>
+                      <option value="soldmovement">Sold Movement</option>
+                      <option value="salebydept">Sale By Dept</option>
+                      <option value="storerecap">Store Recap (Monthly)</option>
+                    </select>
+                  </div>
+
+                  <!-- PASSWORD (OPTIONAL) -->
+                  <div>
+                    <label for="dailyPassword" class="block text-xs font-semibold text-slate-700.dark:text-slate-300 mb-1">
+                      Password สำหรับไฟล์เข้ารหัส (ถ้ามี)
+                    </label>
+                    <input
+                      id="dailyPassword"
+                      type="password"
+                      class="w-full rounded-lg border border-gray-300.dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-700.dark:text-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500.dark:focus:ring-sky-500"
+                      placeholder="เว้นว่างไว้หากใช้ค่าเริ่มต้น"
+                    />
+                    <p class="mt-1 text-[11px] text-slate-400.dark:text-slate-500">
+                      ระบบจะใช้ค่าเริ่มต้นภายใน (NewBI#2020) หากไม่ใส่รหัสผ่านเอง<br />
+                      *หมายเหตุ: ถ้าไฟล์เป็น ZIP/Excel แบบเข้ารหัสทั้งไฟล์ JSZip/XLSX อาจไม่รองรับ ให้แตกไฟล์ก่อนอัปโหลด*
+                    </p>
+                  </div>
+
+                  <!-- FILE INPUT -->
                   <input id="dailyFile" type="file" accept=".zip,.xlsx,.xls"
-                    class="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 dark:file:bg-sky-900/50 file:text-blue-700 dark:file:text-sky-300 hover:file:bg-blue-100 dark:hover:file:bg-sky-800 transition-all" />
+                    class="block w-full text-xs text-slate-500.dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 dark:file:bg-sky-900/50 file:text-blue-700.dark:file:text-sky-300 hover:file:bg-blue-100.dark:hover:file:bg-sky-800 transition-all" />
+
                   <button id="btnProcessDaily" type="button"
-                    class="w-full py-2 rounded-lg bg-blue-600 dark:bg-sky-600 text-white text-xs font-bold hover:bg-blue-700 dark:hover:bg-sky-500 transition-colors shadow-sm">
-                    ประมวลผล Daily Pack
+                    class="w-full py-2 rounded-lg bg-blue-600.dark:bg-sky-600 text-white text-xs font-bold hover:bg-blue-700.dark:hover:bg-sky-500 transition-colors shadow-sm">
+                    ประมวลผล Daily Data
                   </button>
                 </div>
               </div>
 
-              <!-- Weekly -->
+              <!-- WEEKLY DATA CARD -->
               <div
-                class="group bg-white dark:bg-slate-800/50 rounded-xl border border-gray-200 dark:border-slate-700 p-5 hover:border-emerald-300 dark:hover:border-emerald-500 hover:shadow-md transition-all">
-                <div class="flex justify-between items-start mb-4">
+                class="group bg-white dark:bg-slate-800/50 rounded-xl border border-gray-200.dark:border-slate-700 p-5 hover:border-emerald-300.dark:hover:border-emerald-500 hover:shadow-md transition-all">
+                <div class="flex justify-between.items-start mb-4">
                   <div>
                     <h3
-                      class="text-base font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                      Weekly KPI
+                      class="text-base font-bold text-slate-800.dark:text-slate-200 group-hover:text-emerald-600.dark:group-hover:text-emerald-400 transition-colors">
+                      Weekly Data (Weekly KPI)
                     </h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">ไฟล์ Weekly Sales KPI สรุปรายสัปดาห์</p>
+                    <p class="text-xs text-slate-500.dark:text-slate-400 mt-1">
+                      อัปโหลด Weekly Sales KPI (.xls, .xlsx, .zip)
+                    </p>
                   </div>
                   <div
-                    class="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    class="w-8 h-8 rounded-full bg-emerald-50.dark:bg-emerald-900/30 flex.items-center justify-center text-emerald-600 dark:text-emerald-400">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z">
@@ -672,41 +719,14 @@
                     </svg>
                   </div>
                 </div>
+
                 <div class="space-y-3">
                   <input id="weeklyFile" type="file" accept=".zip,.xlsx,.xls"
-                    class="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-900/50 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-800 transition-all" />
-                  <button id="btnProcessWeekly" type="button"
-                    class="w-full py-2 rounded-lg bg-emerald-600 dark:bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 dark:hover:bg-emerald-500 transition-colors shadow-sm">
-                    ประมวลผล Weekly
-                  </button>
-                </div>
-              </div>
+                    class="block w-full text-xs text-slate-500.dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-emerald-50.dark:file:bg-emerald-900/50 file:text-emerald-700.dark:file:text-emerald-300 hover:file:bg-emerald-100.dark:hover:file:bg-emerald-800 transition-all" />
 
-              <!-- Recap -->
-              <div
-                class="group bg-white dark:bg-slate-800/50 rounded-xl border border-gray-200 dark:border-slate-700 p-5 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md transition-all">
-                <div class="flex justify-between items-start mb-4">
-                  <div>
-                    <h3
-                      class="text-base font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                      Store Recap
-                    </h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">ไฟล์ Monthly Store Recap</p>
-                  </div>
-                  <div
-                    class="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                  </div>
-                </div>
-                <div class="space-y-3">
-                  <input id="recapFile" type="file" accept=".zip,.xlsx,.xls"
-                    class="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/50 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800 transition-all" />
-                  <button id="btnProcessRecap" type="button"
-                    class="w-full py-2 rounded-lg bg-indigo-600 dark:bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 dark:hover:bg-indigo-500 transition-colors shadow-sm">
-                    ประมวลผล Recap
+                  <button id="btnProcessWeekly" type="button"
+                    class="w-full py-2 rounded-lg bg-emerald-600.dark:bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700.dark:hover:bg-emerald-500 transition-colors shadow-sm">
+                    ประมวลผล Weekly KPI
                   </button>
                 </div>
               </div>
@@ -714,7 +734,7 @@
           </div>
         </section>
 
-
+        <!-- REPORT TAB -->
         <section id="tab-report" class="tab-panel px-6 py-8 md:px-10 md:py-10 hidden">
           <div class="flex flex-col gap-6">
             <div class="flex items-center justify-between">
@@ -722,13 +742,13 @@
               <button
                 id="btnRefreshReport"
                 type="button"
-                class="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 shadow-sm transition-colors"
+                class="inline-flex items-center justify-center rounded-lg border border-gray-300.dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2 text-xs font-medium text-slate-700.dark:text-slate-300 hover:bg-gray-50.dark:hover:bg-slate-700 shadow-sm transition-colors"
               >
                 Refresh
               </button>
             </div>
             <div class="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden shadow-inner">
-              <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex justify-between items-center">
+              <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex.justify-between items-center">
                 <span class="text-xs font-mono text-slate-400">system_output.log</span>
                 <div class="flex gap-1.5">
                   <div class="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
@@ -741,25 +761,28 @@
           </div>
         </section>
 
+        <!-- CALENDAR TAB -->
         <section id="tab-calendar" class="tab-panel px-6 py-6 md:px-8 md:py-8 hidden">
           <div class="text-center text-slate-400 py-10">
             Calendar view will be attached to Firestore later.
           </div>
         </section>
 
+        <!-- CONFIG TAB -->
         <section id="tab-config" class="tab-panel px-6 py-8 md:px-10 md:py-10 hidden">
           <!-- … Config content เดิมของพี่ … -->
         </section>
       </div>
 
-      <section class="mt-6 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div class="bg-gray-50 dark:bg-slate-800 px-4 py-2 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
-          <h3 class="text-xs font-bold text-slate-600.dark:text-slate-400 uppercase tracking-wider">System Console</h3>
+      <!-- SYSTEM CONSOLE -->
+      <section class="mt-6 bg-white dark:bg-slate-900 rounded-xl border border-gray-200.dark:border-slate-800 shadow-sm overflow-hidden">
+        <div class="bg-gray-50 dark:bg-slate-800 px-4 py-2 border-b border-gray-200.dark:border-slate-700 flex.items-center justify-between">
+          <h3 class="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">System Console</h3>
           <button id="btnClearLog" type="button" class="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline">
             Clear
           </button>
         </div>
-        <pre id="consoleLog" class="kpi-scroll h-32 p-3 text-[10px] text-slate-600 dark:text-slate-400 font-mono overflow-auto bg-white dark:bg-slate-950"></pre>
+        <pre id="consoleLog" class="kpi-scroll h-32 p-3 text-[10px] text-slate-600.dark:text-slate-400 font-mono overflow-auto bg-white dark:bg-slate-950"></pre>
       </section>
     </main>
   </div>

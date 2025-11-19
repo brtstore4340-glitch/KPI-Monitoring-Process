@@ -1,5 +1,11 @@
 // kpi-input.js
-// KPI Data Processor – Code V10 (Input Upload & Firestore Summary)
+// KPI Data Processor – Code V10 (Daily/Weekly Upload & Firestore Summary Only)
+// - Daily: เลือกประเภท Daily KPI / Sold Movement / Sale By Dept / Store Recap
+// - Weekly: Weekly KPI
+// - รองรับ .xls / .xlsx / .zip
+// - บันทึกเฉพาะ summary ลง Firestore (ไม่ส่ง 2D array)
+// - มีช่อง password ให้ user ใส่เองได้ (เตรียมไว้ เผื่อใช้กับ backend / library อื่น)
+//   *ปัจจุบัน JSZip/XLSX ยังไม่รองรับถอดรหัสไฟล์ zip/xlsx ที่ถูก encrypt ทั้งไฟล์โดยใช้ password*
 
 import {
   appState,
@@ -13,7 +19,10 @@ import {
   addDoc
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-// --------- Helpers ---------
+// ค่า default ภายใน (ไม่แสดงบน UI)
+const DEFAULT_ENCRYPTION_PASSWORD = "NewBI#2020";
+
+// ---------------- Common Helpers ----------------
 
 function ensureFirebaseReady() {
   if (!appState.firebaseReady || !db) {
@@ -36,16 +45,25 @@ function getSubcollectionName(group) {
   return "other";
 }
 
+// เดา storeId จากชื่อไฟล์ (ถ้าไม่เจอใช้ 4340 เป็นค่า default)
 function guessStoreIdFromFilename(fileName) {
-  // เดา store id จากเลข 4 หลักในชื่อไฟล์ ถ้าไม่เจอใช้ 4340
   const m = fileName.match(/(\d{4})/);
   if (m && m[1]) return m[1];
   return "4340";
 }
 
-async function saveFileSummaryToFirestore(group, fileName, sheetName, rowCount, colCount) {
+// ---------------- Firestore Writer (Summary Only) ----------------
+
+async function saveFileSummaryToFirestore(group, logicalType, fileName, sheetName, rowCount, colCount) {
   const storeId = guessStoreIdFromFilename(fileName);
-  const subCol = getSubcollectionName(group);
+
+  // ถ้าเป็น Store Recap ให้ map group -> recap (เก็บใน recapSub)
+  let effectiveGroup = group;
+  if (logicalType === "storerecap") {
+    effectiveGroup = "recap";
+  }
+
+  const subCol = getSubcollectionName(effectiveGroup);
 
   const colRef = collection(
     db,
@@ -55,7 +73,8 @@ async function saveFileSummaryToFirestore(group, fileName, sheetName, rowCount, 
   );
 
   const payload = {
-    group,
+    group: effectiveGroup,   // daily / weekly / recap
+    logicalType,             // daily_kpi / soldmovement / salebydept / storerecap / weekly_kpi
     fileName,
     sheetName,
     rows: rowCount,
@@ -66,11 +85,13 @@ async function saveFileSummaryToFirestore(group, fileName, sheetName, rowCount, 
   await addDoc(colRef, payload);
 
   pushLog(
-    `[FIRESTORE] Saved summary – store=${storeId}, sub=${subCol}, file=${fileName}, rows=${rowCount}, cols=${colCount}`
+    `[FIRESTORE] Saved summary – store=${storeId}, sub=${subCol}, type=${logicalType}, file=${fileName}, rows=${rowCount}, cols=${colCount}`
   );
 }
 
-async function processSingleWorkbook(group, fileName, arrayBuffer) {
+// ---------------- XLSX Processor ----------------
+
+async function processSingleWorkbook(group, logicalType, fileName, arrayBuffer) {
   if (typeof XLSX === "undefined") {
     pushLog("[ERROR] XLSX library not found");
     throw new Error("XLSX library not loaded");
@@ -98,76 +119,101 @@ async function processSingleWorkbook(group, fileName, arrayBuffer) {
     `[XLSX] Parsed file="${fileName}" sheet="${sheetName}" rows=${rowCount} cols=${colCount}`
   );
 
-  await saveFileSummaryToFirestore(group, fileName, sheetName, rowCount, colCount);
+  await saveFileSummaryToFirestore(group, logicalType, fileName, sheetName, rowCount, colCount);
 }
 
-async function processFileOrZip(group, file) {
+// ---------------- ZIP / Single file Handler ----------------
+
+async function processFileOrZip(group, logicalType, file, encryptionPassword) {
   const fileName = file.name || "unknown";
   const lowerName = fileName.toLowerCase();
 
-  // กรณี zip
+  // ตอนนี้ JSZip ยังไม่รองรับ "encrypted zip" แม้จะมี password
+  // ถ้าเจอ zip เข้ารหัส จะเด้ง error: "Encrypted zip are not supported"
+  // เราเลยใช้ password แค่ log ไว้ / เผื่ออนาคตต่อ backend เท่านั้น
   if (lowerName.endsWith(".zip")) {
     if (typeof JSZip === "undefined") {
       pushLog("[ERROR] JSZip not found");
       throw new Error("JSZip library not loaded");
     }
 
-    pushLog(`[UPLOAD] Processing ZIP for group=${group}: ${fileName}`);
+    pushLog(`[UPLOAD] Processing ZIP for group=${group}, type=${logicalType}, file=${fileName}`);
+    pushLog(`[INFO] Encryption password (if any) was provided but JSZip cannot decrypt encrypted ZIP at client-side.`);
 
-    const zip = await JSZip.loadAsync(file);
+    let zip;
+    try {
+      zip = await JSZip.loadAsync(file);
+    } catch (err) {
+      const msg = err && (err.message || err.toString());
+      pushLog("[ZIP ERROR] " + msg);
+
+      if (msg && msg.includes("Encrypted zip are not supported")) {
+        throw new Error(
+          "ไฟล์ ZIP นี้ถูกเข้ารหัสด้วย password ซึ่ง JSZip ที่ใช้ใน browser ไม่รองรับ\n" +
+          "ให้พี่ใช้โปรแกรมแตกไฟล์ด้วย password (เช่น NewBI#2020) ก่อน แล้วอัปโหลดไฟล์ .xls/.xlsx ตรง ๆ แทน"
+        );
+      }
+
+      throw err;
+    }
+
     const entries = Object.keys(zip.files);
-
     let processedCount = 0;
 
     for (const entryName of entries) {
       const entry = zip.files[entryName];
       if (entry.dir) continue;
+
       const lowerEntry = entryName.toLowerCase();
       if (!lowerEntry.endsWith(".xlsx") && !lowerEntry.endsWith(".xls")) continue;
 
       pushLog(`[ZIP] Reading entry: ${entryName}`);
       const arrayBuffer = await entry.async("arraybuffer");
-      await processSingleWorkbook(group, entryName, arrayBuffer);
+      await processSingleWorkbook(group, logicalType, entryName, arrayBuffer);
       processedCount++;
     }
 
     pushLog(
-      `[UPLOAD] ZIP completed for group=${group}: ${fileName}, processed ${processedCount} Excel file(s)`
+      `[UPLOAD] ZIP completed for group=${group}, type=${logicalType}, file=${fileName}, processed ${processedCount} Excel file(s)`
     );
   } else {
     // กรณีไฟล์เดี่ยว
-    pushLog(`[UPLOAD] Processing single file for group=${group}: ${fileName}`);
+    pushLog(
+      `[UPLOAD] Processing single file for group=${group}, type=${logicalType}, file=${fileName}`
+    );
     const arrayBuffer = await file.arrayBuffer();
-    await processSingleWorkbook(group, fileName, arrayBuffer);
+    await processSingleWorkbook(group, logicalType, fileName, arrayBuffer);
   }
 }
 
-// --------- Event Handlers ---------
+// ---------------- Event Handlers ----------------
 
-async function handleUploadClick(group) {
+async function handleUploadDaily() {
   if (!ensureFirebaseReady()) return;
 
-  let inputId = "";
-  if (group === "daily") inputId = "dailyFile";
-  if (group === "weekly") inputId = "weeklyFile";
-  if (group === "recap") inputId = "recapFile";
+  const typeSelect = document.getElementById("dailyReportType");
+  const logicalType = typeSelect?.value || "daily_kpi";
 
-  const input = document.getElementById(inputId);
-  if (!input || !input.files || !input.files.length) {
+  const fileInput = document.getElementById("dailyFile");
+  if (!fileInput || !fileInput.files || !fileInput.files.length) {
     Swal.fire(
       "No file selected",
-      "กรุณาเลือกไฟล์ก่อนกดประมวลผล",
+      "กรุณาเลือกไฟล์ Daily ก่อนกดประมวลผล",
       "warning"
     );
     return;
   }
 
-  const file = input.files[0];
+  const file = fileInput.files[0];
+
+  const pwdInput = document.getElementById("dailyPassword");
+  const userPwd = (pwdInput?.value || "").trim();
+  const effectivePassword = userPwd || DEFAULT_ENCRYPTION_PASSWORD;
 
   try {
     Swal.fire({
-      title: "Processing...",
-      text: `กำลังประมวลผลไฟล์ (${group})`,
+      title: "Processing Daily...",
+      text: `กำลังประมวลผล (${logicalType})`,
       allowOutsideClick: false,
       allowEscapeKey: false,
       didOpen: () => {
@@ -175,38 +221,75 @@ async function handleUploadClick(group) {
       }
     });
 
-    await processFileOrZip(group, file);
+    // group = "daily" (ยกเว้น storerecap map เป็น recap ตอน save)
+    await processFileOrZip("daily", logicalType, file, effectivePassword);
 
     Swal.fire(
       "สำเร็จ",
-      "ประมวลผลและบันทึก summary เข้า Firestore แล้ว",
+      "ประมวลผลและบันทึกข้อมูลสรุปเข้า Firestore แล้ว",
       "success"
     );
   } catch (err) {
     console.error(err);
     const msg = err && (err.message || err.toString());
-    pushLog("[ERROR] Upload failed: " + msg);
-    Swal.fire("Error", "เกิดข้อผิดพลาดระหว่างประมวลผลไฟล์:\n" + msg, "error");
+    pushLog("[UPLOAD DAILY ERROR] " + msg);
+    Swal.fire("Error", msg, "error");
   }
 }
 
-// --------- Bootstrap for Input Tab ---------
+async function handleUploadWeekly() {
+  if (!ensureFirebaseReady()) return;
+
+  const fileInput = document.getElementById("weeklyFile");
+  if (!fileInput || !fileInput.files || !fileInput.files.length) {
+    Swal.fire(
+      "No file selected",
+      "กรุณาเลือกไฟล์ Weekly KPI ก่อนกดประมวลผล",
+      "warning"
+    );
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const logicalType = "weekly_kpi";
+
+  try {
+    Swal.fire({
+      title: "Processing Weekly KPI...",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    await processFileOrZip("weekly", logicalType, file, null);
+
+    Swal.fire(
+      "สำเร็จ",
+      "ประมวลผล Weekly KPI และบันทึก summary เข้า Firestore แล้ว",
+      "success"
+    );
+  } catch (err) {
+    console.error(err);
+    const msg = err && (err.message || err.toString());
+    pushLog("[UPLOAD WEEKLY ERROR] " + msg);
+    Swal.fire("Error", msg, "error");
+  }
+}
+
+// ---------------- Bootstrap ----------------
 
 document.addEventListener("DOMContentLoaded", () => {
   const btnDaily = document.getElementById("btnProcessDaily");
   if (btnDaily) {
-    btnDaily.addEventListener("click", () => handleUploadClick("daily"));
+    btnDaily.addEventListener("click", handleUploadDaily);
   }
 
   const btnWeekly = document.getElementById("btnProcessWeekly");
   if (btnWeekly) {
-    btnWeekly.addEventListener("click", () => handleUploadClick("weekly"));
+    btnWeekly.addEventListener("click", handleUploadWeekly);
   }
 
-  const btnRecap = document.getElementById("btnProcessRecap");
-  if (btnRecap) {
-    btnRecap.addEventListener("click", () => handleUploadClick("recap"));
-  }
-
-  pushLog("[INPUT] Input handlers bound (daily/weekly/recap)");
+  pushLog("[INPUT] V10 input handlers bound (daily & weekly)");
 });
