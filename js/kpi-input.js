@@ -1,210 +1,394 @@
 // kpi-input.js
-// KPI Data Processor – Code V10 (Daily / Weekly / Recap Upload to Firestore)
+// KPI Data Processor – Code V10 (File Input & Firestore Persist)
+// - รองรับ Daily / Weekly / Recap
+// - อ่าน .xlsx เดี่ยว หรือ .zip ที่มีหลาย .xlsx
+// - แยก type จากชื่อไฟล์ แล้ว merge ลง Firestore ตาม storeId + dateKey
 
 import {
   appState,
   db,
+  CODE_VERSION,
   DAILY_COLLECTION_ROOT,
-  saveKpiDocument,
   pushLog
-} from "./kpi-core.js";
+} from "./kpi-core.js"; // 🔁 ถ้าไฟล์ core ของพี่ชื่อ kpi-core-v08.js ให้แก้เป็น "./kpi-core-v08.js"
 
 import {
-  collection,
   doc,
-  setDoc
+  setDoc,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-// ใช้ XLSX และ JSZip จาก global (โหลดใน index.html แล้ว)
+// ---------------------------------------------------------------------
+// 1) Helper พื้นฐาน
+// ---------------------------------------------------------------------
 
-// --- Helpers ---
-
-/**
- * แปลง workbook -> rows แบบ array-of-arrays
- */
-function workbookToRows(workbook) {
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
-  return rows;
+function ensureFirebaseReady() {
+  if (!appState.firebaseReady || !db) {
+    alert("ระบบยังเชื่อมต่อฐานข้อมูลไม่สมบูรณ์ กรุณารอสักครู่แล้วลองใหม่อีกครั้ง");
+    pushLog("[ERROR] Firebase not ready yet, abort upload.");
+    return false;
+  }
+  return true;
 }
 
-/**
- * อ่านไฟล์ .xlsx/.xls เป็น rows
- */
-async function readExcelFile(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const workbook = XLSX.read(arrayBuffer, { type: "array" });
-  return workbookToRows(workbook);
+function readFileAsArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = (err) => reject(err);
+    reader.readAsArrayBuffer(file);
+  });
 }
 
-/**
- * parse meta จากชื่อไฟล์ ตาม pattern ที่พี่ให้
- */
-function parseMetaFromFilename(fileName, groupHint) {
-  const lower = fileName.toLowerCase();
-  let group = groupHint || "daily";
-  let type = "unknown";
-  let storeId = "4340";
+function workbookToSheetsData(workbook) {
+  const result = {};
+  workbook.SheetNames.forEach((sheetName) => {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) return;
+    const rows = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      raw: false
+    });
+    result[sheetName] = rows;
+  });
+  return result;
+}
+
+// ---------------------------------------------------------------------
+// 2) ตรวจ type / store / date จากชื่อไฟล์
+// ---------------------------------------------------------------------
+
+function detectDailyType(filenameLower) {
+  if (filenameLower.startsWith("daily sales kpi")) return "daily_kpi";
+  if (filenameLower.startsWith("salebydeptuk")) return "salebydeptUK";
+  if (filenameLower.startsWith("soldmovement")) return "soldmovement";
+  return "unknown";
+}
+
+function detectWeeklyType(filenameLower) {
+  if (filenameLower.startsWith("weekly sales kpi")) return "weekly_kpi";
+  return "weekly_unknown";
+}
+
+function detectRecapType(filenameLower) {
+  if (filenameLower.startsWith("storerecap")) return "storerecap";
+  return "recap_unknown";
+}
+
+// ตัวอย่างชื่อไฟล์:
+//  - Daily Sales KPI by Store-en-us-4340_20251102_170024.xlsx
+//  - Weekly Sales KPI by Store-en-us-4340_20250106_144500.xlsx
+//  - salebydeptUK4340.xls
+//  - soldmovement43401511.xls (เอา 4 ตัวแรกเป็น store)
+//  - storerecap4340.xls
+function parseStoreAndDateFromFilename(name) {
+  const base = name.replace(/^.*[\\/]/, "");
+  let storeId = null;
   let dateKey = null;
 
-  // Daily Sales KPI by Store-en-us-4340_20251102_170024.xlsx
-  if (lower.startsWith("daily sales kpi by")) {
-    type = "daily_kpi";
-    group = "daily";
-    const m = lower.match(/store-en-us-(\d{3,4})_(\d{8})/i);
-    if (m) {
-      storeId = m[1];
-      dateKey = m[2];
-    } else {
-      const d = lower.match(/(\d{8})/);
-      if (d) dateKey = d[1];
-    }
-  }
-  // salebydeptUK4340.xls
-  else if (lower.startsWith("salebydeptuk")) {
-    type = "salebydeptUK";
-    group = "daily";
-    const m = lower.match(/salebydeptuk(\d+)/);
-    if (m) storeId = m[1];
-  }
-  // soldmovement43401511.xls
-  else if (lower.startsWith("soldmovement")) {
-    type = "soldmovement";
-    group = "daily";
-    const m = lower.match(/soldmovement(\d{3,4})(\d+)?/);
-    if (m) {
-      storeId = m[1];
-      // ถ้ามีส่วนที่เหลือให้เก็บเป็น dateKey แบบเติมปี 20xx ตามสมมติ
-      if (m[2]) {
-        // สมมติรูปแบบ ddmm -> ใส่ปีปัจจุบัน
-        const tail = m[2];
-        if (tail.length === 4) {
-          const now = new Date();
-          const year = String(now.getFullYear());
-          dateKey = year + tail.substring(2, 4) + tail.substring(0, 2); // yyyy mm dd (เดา)
-        }
-      }
-    }
-  }
-  // storerecap4340.xls
-  else if (lower.startsWith("storerecap")) {
-    type = "storerecap";
-    group = "recap";
-    const m = lower.match(/storerecap(\d+)/);
-    if (m) storeId = m[1];
-  }
-  // Weekly Sales KPI by Store-en-us-4340_20250106_144500.xlsx
-  else if (lower.startsWith("weekly sales kpi by")) {
-    type = "weekly_kpi";
-    group = "weekly";
-    const m = lower.match(/store-en-us-(\d{3,4})_(\d{8})/i);
-    if (m) {
-      storeId = m[1];
-      dateKey = m[2];
+  const m1 = base.match(/-([0-9]{4})_/); // ...-4340_YYYYMMDD_
+  if (m1) {
+    storeId = m1[1];
+  } else {
+    const m2 = base.match(/(salebydeptuk|soldmovement|storerecap)(\d{4})/i);
+    if (m2) {
+      storeId = m2[2];
     }
   }
 
-  return {
+  const dm = base.match(/_(\d{8})_/); // _YYYYMMDD_
+  if (dm) {
+    dateKey = dm[1];
+  }
+
+  return { storeId, dateKey };
+}
+
+// ---------------------------------------------------------------------
+// 3) บันทึกลง Firestore (merge ต่อ doc เดิมได้)
+// ---------------------------------------------------------------------
+
+async function saveKpiDocument({ group, type, storeId, dateKey, sourceFileName, sheets }) {
+  const store = storeId || "UNKNOWN";
+
+  const sub =
+    group === "daily"
+      ? appState.collections.dailySub
+      : group === "weekly"
+      ? appState.collections.weeklySub
+      : appState.collections.recapSub;
+
+  let docId = dateKey;
+  if (!docId) {
+    docId = sourceFileName.replace(/\.[^/.]+$/, "");
+  }
+
+  const ref = doc(db, DAILY_COLLECTION_ROOT, store, sub, docId);
+
+  const payload = {
     group,
+    storeId: store,
+    dateKey: dateKey || null,
+    codeVersion: CODE_VERSION,
+    updatedAt: serverTimestamp()
+  };
+
+  // เก็บข้อมูลของ type นี้ไว้ใต้ key แยกต่างหาก
+  payload[`files_${type}`] = {
+    type,
+    sourceFileName,
+    sheetNames: Object.keys(sheets),
+    sheets
+  };
+
+  await setDoc(ref, payload, { merge: true });
+
+  pushLog(
+    `[FIRESTORE] Saved group=${group}, type=${type}, store=${store}, docId=${docId}, dateKey=${dateKey || "-"
+    }`
+  );
+}
+
+// ---------------------------------------------------------------------
+// 4) DAILY
+// ---------------------------------------------------------------------
+
+async function processSingleDailyFile(file) {
+  const baseName = file.name.replace(/^.*[\\/]/, "");
+  const lower = baseName.toLowerCase();
+  const type = detectDailyType(lower);
+  const { storeId, dateKey } = parseStoreAndDateFromFilename(baseName);
+
+  pushLog(
+    `[DAILY] Processing "${baseName}" (type=${type}, store=${storeId || "-"}, dateKey=${dateKey || "-"
+    })`
+  );
+
+  const buf = await readFileAsArrayBuffer(file);
+  const workbook = XLSX.read(new Uint8Array(buf), { type: "array" });
+  const sheets = workbookToSheetsData(workbook);
+
+  await saveKpiDocument({
+    group: "daily",
     type,
     storeId,
     dateKey,
-    fileName
-  };
+    sourceFileName: baseName,
+    sheets
+  });
 }
 
-/**
- * process excel file (1 ไฟล์)
- */
-async function processSingleExcelFile(file, groupHint) {
-  if (!db) {
-    throw new Error("Firestore not initialized");
-  }
+async function handleDailyClick() {
+  if (!ensureFirebaseReady()) return;
 
-  const meta = parseMetaFromFilename(file.name, groupHint);
-  pushLog(`[UPLOAD] Processing ${file.name} → type=${meta.type}, store=${meta.storeId}, group=${meta.group}`);
-
-  const rows = await readExcelFile(file);
-  const docId = await saveKpiDocument(meta, rows);
-
-  pushLog(`[UPLOAD] Saved to Firestore docId=${docId}`);
-}
-
-/**
- * process zip: เปิดทุก entry ที่เป็น .xlsx/.xls
- */
-async function processZipFile(file, groupHint) {
-  const zip = await JSZip.loadAsync(file);
-  const entries = Object.values(zip.files);
-
-  for (const entry of entries) {
-    if (entry.dir) continue;
-    const name = entry.name;
-    const lower = name.toLowerCase();
-    if (!lower.endsWith(".xlsx") && !lower.endsWith(".xls")) continue;
-
-    pushLog(`[ZIP] Found entry: ${name}`);
-    const content = await entry.async("arraybuffer");
-    const workbook = XLSX.read(content, { type: "array" });
-    const rows = workbookToRows(workbook);
-
-    const meta = parseMetaFromFilename(name, groupHint);
-    const docId = await saveKpiDocument(meta, rows);
-
-    pushLog(`[ZIP] Saved entry ${name} → docId=${docId}`);
-  }
-}
-
-/**
- * ตัวกลาง process file หรือ zip ตาม group
- */
-async function processFileInput(inputId, groupHint) {
-  const input = document.getElementById(inputId);
-  if (!input || !input.files || !input.files.length) {
-    Swal.fire("Upload Error", "กรุณาเลือกไฟล์ก่อน", "warning");
+  const input = document.getElementById("dailyFile");
+  const file = input && input.files && input.files[0];
+  if (!file) {
+    alert("กรุณาเลือกไฟล์ Daily (.xlsx หรือ .zip) ก่อน");
     return;
   }
-
-  if (!appState.firebaseReady || !db) {
-    Swal.fire("System Error", "ยังไม่ได้เชื่อมต่อ Database กรุณารอสักครู่", "error");
-    return;
-  }
-
-  const file = input.files[0];
-  const name = file.name.toLowerCase();
 
   try {
-    pushLog(`[UPLOAD] Start processing file: ${file.name} (${groupHint})`);
+    if (file.name.toLowerCase().endsWith(".zip")) {
+      pushLog(`[DAILY] ZIP detected: ${file.name}`);
+      const zip = await JSZip.loadAsync(file);
+      const tasks = [];
 
-    if (name.endsWith(".zip")) {
-      await processZipFile(file, groupHint);
+      zip.forEach((path, entry) => {
+        if (!entry.dir && path.toLowerCase().endsWith(".xlsx")) {
+          tasks.push(
+            zip
+              .file(path)
+              .async("arraybuffer")
+              .then((buf) => {
+                const f = new File([buf], path.replace(/^.*[\\/]/, ""), {
+                  type:
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                });
+                return processSingleDailyFile(f);
+              })
+          );
+        }
+      });
+
+      await Promise.all(tasks);
     } else {
-      await processSingleExcelFile(file, groupHint);
+      await processSingleDailyFile(file);
     }
 
-    Swal.fire("สำเร็จ", "บันทึกข้อมูลลง Firestore แล้ว", "success");
+    alert("ประมวลผล Daily Pack เสร็จและบันทึกลง Firestore แล้ว");
   } catch (err) {
     console.error(err);
-    pushLog("[UPLOAD ERROR] " + (err.message || err.toString()));
-    Swal.fire("Error", err.message || "ไม่สามารถประมวลผลไฟล์ได้", "error");
+    pushLog("[DAILY ERROR] " + (err && (err.message || err.toString())));
+    alert("เกิดข้อผิดพลาดระหว่างประมวลผล Daily กรุณาเช็ค Console/Console Log");
   }
 }
 
-// --- INIT BUTTON LISTENERS ---
-document.addEventListener("DOMContentLoaded", () => {
+// ---------------------------------------------------------------------
+// 5) WEEKLY
+// ---------------------------------------------------------------------
+
+async function processSingleWeeklyFile(file) {
+  const baseName = file.name.replace(/^.*[\\/]/, "");
+  const lower = baseName.toLowerCase();
+  const type = detectWeeklyType(lower);
+  const { storeId, dateKey } = parseStoreAndDateFromFilename(baseName);
+
+  pushLog(
+    `[WEEKLY] Processing "${baseName}" (type=${type}, store=${storeId || "-"}, dateKey=${dateKey || "-"
+    })`
+  );
+
+  const buf = await readFileAsArrayBuffer(file);
+  const workbook = XLSX.read(new Uint8Array(buf), { type: "array" });
+  const sheets = workbookToSheetsData(workbook);
+
+  await saveKpiDocument({
+    group: "weekly",
+    type,
+    storeId,
+    dateKey,
+    sourceFileName: baseName,
+    sheets
+  });
+}
+
+async function handleWeeklyClick() {
+  if (!ensureFirebaseReady()) return;
+
+  const input = document.getElementById("weeklyFile");
+  const file = input && input.files && input.files[0];
+  if (!file) {
+    alert("กรุณาเลือกไฟล์ Weekly (.xlsx หรือ .zip) ก่อน");
+    return;
+  }
+
+  try {
+    if (file.name.toLowerCase().endsWith(".zip")) {
+      pushLog(`[WEEKLY] ZIP detected: ${file.name}`);
+      const zip = await JSZip.loadAsync(file);
+      const tasks = [];
+
+      zip.forEach((path, entry) => {
+        if (!entry.dir && path.toLowerCase().endsWith(".xlsx")) {
+          tasks.push(
+            zip
+              .file(path)
+              .async("arraybuffer")
+              .then((buf) => {
+                const f = new File([buf], path.replace(/^.*[\\/]/, ""), {
+                  type:
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                });
+                return processSingleWeeklyFile(f);
+              })
+          );
+        }
+      });
+
+      await Promise.all(tasks);
+    } else {
+      await processSingleWeeklyFile(file);
+    }
+
+    alert("ประมวลผล Weekly เสร็จและบันทึกลง Firestore แล้ว");
+  } catch (err) {
+    console.error(err);
+    pushLog("[WEEKLY ERROR] " + (err && (err.message || err.toString())));
+    alert("เกิดข้อผิดพลาดระหว่างประมวลผล Weekly กรุณาเช็ค Console/Console Log");
+  }
+}
+
+// ---------------------------------------------------------------------
+// 6) RECAP
+// ---------------------------------------------------------------------
+
+async function processSingleRecapFile(file) {
+  const baseName = file.name.replace(/^.*[\\/]/, "");
+  const lower = baseName.toLowerCase();
+  const type = detectRecapType(lower);
+  const { storeId, dateKey } = parseStoreAndDateFromFilename(baseName);
+
+  pushLog(
+    `[RECAP] Processing "${baseName}" (type=${type}, store=${storeId || "-"}, dateKey=${dateKey || "-"
+    })`
+  );
+
+  const buf = await readFileAsArrayBuffer(file);
+  const workbook = XLSX.read(new Uint8Array(buf), { type: "array" });
+  const sheets = workbookToSheetsData(workbook);
+
+  await saveKpiDocument({
+    group: "recap",
+    type,
+    storeId,
+    dateKey,
+    sourceFileName: baseName,
+    sheets
+  });
+}
+
+async function handleRecapClick() {
+  if (!ensureFirebaseReady()) return;
+
+  const input = document.getElementById("recapFile");
+  const file = input && input.files && input.files[0];
+  if (!file) {
+    alert("กรุณาเลือกไฟล์ Recap (.xlsx หรือ .zip) ก่อน");
+    return;
+  }
+
+  try {
+    if (file.name.toLowerCase().endsWith(".zip")) {
+      pushLog(`[RECAP] ZIP detected: ${file.name}`);
+      const zip = await JSZip.loadAsync(file);
+      const tasks = [];
+
+      zip.forEach((path, entry) => {
+        if (!entry.dir && path.toLowerCase().endsWith(".xlsx")) {
+          tasks.push(
+            zip
+              .file(path)
+              .async("arraybuffer")
+              .then((buf) => {
+                const f = new File([buf], path.replace(/^.*[\\/]/, ""), {
+                  type:
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                });
+                return processSingleRecapFile(f);
+              })
+          );
+        }
+      });
+
+      await Promise.all(tasks);
+    } else {
+      await processSingleRecapFile(file);
+    }
+
+    alert("ประมวลผล Recap เสร็จและบันทึกลง Firestore แล้ว");
+  } catch (err) {
+    console.error(err);
+    pushLog("[RECAP ERROR] " + (err && (err.message || err.toString())));
+    alert("เกิดข้อผิดพลาดระหว่างประมวลผล Recap กรุณาเช็ค Console/Console Log");
+  }
+}
+
+// ---------------------------------------------------------------------
+// 7) INITIALIZE MODULE (ผูกปุ่มทันทีที่โหลดไฟล์นี้)
+// ---------------------------------------------------------------------
+
+function initInputModule() {
   const btnDaily = document.getElementById("btnProcessDaily");
-  if (btnDaily) {
-    btnDaily.addEventListener("click", () => processFileInput("dailyFile", "daily"));
-  }
-
   const btnWeekly = document.getElementById("btnProcessWeekly");
-  if (btnWeekly) {
-    btnWeekly.addEventListener("click", () => processFileInput("weeklyFile", "weekly"));
-  }
-
   const btnRecap = document.getElementById("btnProcessRecap");
-  if (btnRecap) {
-    btnRecap.addEventListener("click", () => processFileInput("recapFile", "recap"));
-  }
-});
+
+  if (btnDaily) btnDaily.addEventListener("click", handleDailyClick);
+  if (btnWeekly) btnWeekly.addEventListener("click", handleWeeklyClick);
+  if (btnRecap) btnRecap.addEventListener("click", handleRecapClick);
+
+  pushLog("[INPUT] kpi-input.js initialized");
+}
+
+// เรียกเลย (เพราะสคริปต์นี้อยู่ท้าย <body> แล้ว DOM ถูกสร้างครบ)
+initInputModule();
